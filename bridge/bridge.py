@@ -35,10 +35,8 @@ class Bridge(object):
 
     def get_bot(self, typename):
         if self.bots.get(typename) is None:
-            logger.info("create bot {} for {}".format(self.btype[typename], typename))
-            if typename == "text_to_voice":
-                self.bots[typename] = create_voice(self.btype[typename])
-            elif typename == "voice_to_text":
+            logger.info(f"create bot {self.btype[typename]} for {typename}")
+            if typename in ["text_to_voice", "voice_to_text"]:
                 self.bots[typename] = create_voice(self.btype[typename])
             elif typename == "chat":
                 self.bots[typename] = create_bot(self.btype[typename])

@@ -20,47 +20,48 @@ class BaiduWenxinBot(Bot):
 
     def reply(self, query, context=None):
         # acquire reply content
-        if context and context.type:
-            if context.type == ContextType.TEXT:
-                logger.info("[BAIDU] query={}".format(query))
-                session_id = context["session_id"]
-                reply = None
-                if query == "#清除记忆":
-                    self.sessions.clear_session(session_id)
-                    reply = Reply(ReplyType.INFO, "记忆已清除")
-                elif query == "#清除所有":
-                    self.sessions.clear_all_session()
-                    reply = Reply(ReplyType.INFO, "所有人记忆已清除")
-                else:
-                    session = self.sessions.session_query(query, session_id)
-                    result = self.reply_text(session)
-                    total_tokens, completion_tokens, reply_content = (
-                        result["total_tokens"],
-                        result["completion_tokens"],
-                        result["content"],
-                    )
-                    logger.debug(
-                        "[BAIDU] new_query={}, session_id={}, reply_cont={}, completion_tokens={}".format(session.messages, session_id, reply_content, completion_tokens)
-                    )
+        if not context or not context.type:
+            return
+        if context.type == ContextType.TEXT:
+            logger.info(f"[BAIDU] query={query}")
+            session_id = context["session_id"]
+            reply = None
+            if query == "#清除记忆":
+                self.sessions.clear_session(session_id)
+                reply = Reply(ReplyType.INFO, "记忆已清除")
+            elif query == "#清除所有":
+                self.sessions.clear_all_session()
+                reply = Reply(ReplyType.INFO, "所有人记忆已清除")
+            else:
+                session = self.sessions.session_query(query, session_id)
+                result = self.reply_text(session)
+                total_tokens, completion_tokens, reply_content = (
+                    result["total_tokens"],
+                    result["completion_tokens"],
+                    result["content"],
+                )
+                logger.debug(
+                    f"[BAIDU] new_query={session.messages}, session_id={session_id}, reply_cont={reply_content}, completion_tokens={completion_tokens}"
+                )
 
-                    if total_tokens == 0:
-                        reply = Reply(ReplyType.ERROR, reply_content)
-                    else:
-                        self.sessions.session_reply(reply_content, session_id, total_tokens)
-                        reply = Reply(ReplyType.TEXT, reply_content)
-                return reply
-            elif context.type == ContextType.IMAGE_CREATE:
-                ok, retstring = self.create_img(query, 0)
-                reply = None
-                if ok:
-                    reply = Reply(ReplyType.IMAGE_URL, retstring)
+                if total_tokens == 0:
+                    reply = Reply(ReplyType.ERROR, reply_content)
                 else:
-                    reply = Reply(ReplyType.ERROR, retstring)
-                return reply
+                    self.sessions.session_reply(reply_content, session_id, total_tokens)
+                    reply = Reply(ReplyType.TEXT, reply_content)
+            return reply
+        elif context.type == ContextType.IMAGE_CREATE:
+            ok, retstring = self.create_img(query, 0)
+            reply = None
+            return (
+                Reply(ReplyType.IMAGE_URL, retstring)
+                if ok
+                else Reply(ReplyType.ERROR, retstring)
+            )
 
     def reply_text(self, session: BaiduWenxinSession, retry_count=0):
         try:
-            logger.info("[BAIDU] model={}".format(session.model))
+            logger.info(f"[BAIDU] model={session.model}")
             access_token = self.get_access_token()
             if access_token == 'None':
                 logger.warn("[BAIDU] access token 获取失败")
@@ -69,7 +70,7 @@ class BaiduWenxinBot(Bot):
                     "completion_tokens": 0,
                     "content": 0,
                     }
-            url = "https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/" + session.model + "?access_token=" + access_token
+            url = f"https://aip.baidubce.com/rpc/2.0/ai_custom/v1/wenxinworkshop/chat/{session.model}?access_token={access_token}"
             headers = {
                 'Content-Type': 'application/json'
             }
@@ -80,7 +81,7 @@ class BaiduWenxinBot(Bot):
             res_content = response_text["result"]
             total_tokens = response_text["usage"]["total_tokens"]
             completion_tokens = response_text["usage"]["completion_tokens"]
-            logger.info("[BAIDU] reply={}".format(res_content))
+            logger.info(f"[BAIDU] reply={res_content}")
             return {
                 "total_tokens": total_tokens,
                 "completion_tokens": completion_tokens,
@@ -88,11 +89,10 @@ class BaiduWenxinBot(Bot):
             }
         except Exception as e:
             need_retry = retry_count < 2
-            logger.warn("[BAIDU] Exception: {}".format(e))
+            logger.warn(f"[BAIDU] Exception: {e}")
             need_retry = False
             self.sessions.clear_session(session.session_id)
-            result = {"completion_tokens": 0, "content": "出错了: {}".format(e)}
-            return result
+            return {"completion_tokens": 0, "content": f"出错了: {e}"}
 
     def get_access_token(self):
         """

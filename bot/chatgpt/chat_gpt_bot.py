@@ -25,8 +25,7 @@ class ChatGPTBot(Bot, OpenAIImage):
         openai.api_key = conf().get("open_ai_api_key")
         if conf().get("open_ai_api_base"):
             openai.api_base = conf().get("open_ai_api_base")
-        proxy = conf().get("proxy")
-        if proxy:
+        if proxy := conf().get("proxy"):
             openai.proxy = proxy
         if conf().get("rate_limit_chatgpt"):
             self.tb4chatgpt = TokenBucket(conf().get("rate_limit_chatgpt", 20))
@@ -46,7 +45,7 @@ class ChatGPTBot(Bot, OpenAIImage):
     def reply(self, query, context=None):
         # acquire reply content
         if context.type == ContextType.TEXT:
-            logger.info("[CHATGPT] query={}".format(query))
+            logger.info(f"[CHATGPT] query={query}")
 
             session_id = context["session_id"]
             reply = None
@@ -63,7 +62,7 @@ class ChatGPTBot(Bot, OpenAIImage):
             if reply:
                 return reply
             session = self.sessions.session_query(query, session_id)
-            logger.debug("[CHATGPT] session query={}".format(session.messages))
+            logger.debug(f"[CHATGPT] session query={session.messages}")
 
             api_key = context.get("openai_api_key")
             model = context.get("gpt_model")
@@ -77,12 +76,7 @@ class ChatGPTBot(Bot, OpenAIImage):
 
             reply_content = self.reply_text(session, api_key, args=new_args)
             logger.debug(
-                "[CHATGPT] new_query={}, session_id={}, reply_cont={}, completion_tokens={}".format(
-                    session.messages,
-                    session_id,
-                    reply_content["content"],
-                    reply_content["completion_tokens"],
-                )
+                f'[CHATGPT] new_query={session.messages}, session_id={session_id}, reply_cont={reply_content["content"]}, completion_tokens={reply_content["completion_tokens"]}'
             )
             if reply_content["completion_tokens"] == 0 and len(reply_content["content"]) > 0:
                 reply = Reply(ReplyType.ERROR, reply_content["content"])
@@ -91,9 +85,7 @@ class ChatGPTBot(Bot, OpenAIImage):
                 reply = Reply(ReplyType.TEXT, reply_content["content"])
             else:
                 reply = Reply(ReplyType.ERROR, reply_content["content"])
-                logger.debug("[CHATGPT] reply {} used 0 tokens.".format(reply_content))
-            return reply
-
+                logger.debug(f"[CHATGPT] reply {reply_content} used 0 tokens.")
         elif context.type == ContextType.IMAGE_CREATE:
             ok, retstring = self.create_img(query, 0)
             reply = None
@@ -101,10 +93,10 @@ class ChatGPTBot(Bot, OpenAIImage):
                 reply = Reply(ReplyType.IMAGE_URL, retstring)
             else:
                 reply = Reply(ReplyType.ERROR, retstring)
-            return reply
         else:
-            reply = Reply(ReplyType.ERROR, "Bot不支持处理{}类型的消息".format(context.type))
-            return reply
+            reply = Reply(ReplyType.ERROR, f"Bot不支持处理{context.type}类型的消息")
+
+        return reply
 
     def reply_text(self, session: ChatGPTSession, api_key=None, args=None, retry_count=0) -> dict:
         """
@@ -132,31 +124,31 @@ class ChatGPTBot(Bot, OpenAIImage):
             need_retry = retry_count < 2
             result = {"completion_tokens": 0, "content": "我现在有点累了，等会再来吧"}
             if isinstance(e, openai.error.RateLimitError):
-                logger.warn("[CHATGPT] RateLimitError: {}".format(e))
+                logger.warn(f"[CHATGPT] RateLimitError: {e}")
                 result["content"] = "提问太快啦，请休息一下再问我吧"
                 if need_retry:
                     time.sleep(20)
             elif isinstance(e, openai.error.Timeout):
-                logger.warn("[CHATGPT] Timeout: {}".format(e))
+                logger.warn(f"[CHATGPT] Timeout: {e}")
                 result["content"] = "我没有收到你的消息"
                 if need_retry:
                     time.sleep(5)
             elif isinstance(e, openai.error.APIError):
-                logger.warn("[CHATGPT] Bad Gateway: {}".format(e))
+                logger.warn(f"[CHATGPT] Bad Gateway: {e}")
                 result["content"] = "请再问我一次"
                 if need_retry:
                     time.sleep(10)
             elif isinstance(e, openai.error.APIConnectionError):
-                logger.warn("[CHATGPT] APIConnectionError: {}".format(e))
+                logger.warn(f"[CHATGPT] APIConnectionError: {e}")
                 need_retry = False
                 result["content"] = "我连接不到你的网络"
             else:
-                logger.exception("[CHATGPT] Exception: {}".format(e))
+                logger.exception(f"[CHATGPT] Exception: {e}")
                 need_retry = False
                 self.sessions.clear_session(session.session_id)
 
             if need_retry:
-                logger.warn("[CHATGPT] 第{}次重试".format(retry_count + 1))
+                logger.warn(f"[CHATGPT] 第{retry_count + 1}次重试")
                 return self.reply_text(session, api_key, args, retry_count + 1)
             else:
                 return result
@@ -171,7 +163,7 @@ class AzureChatGPTBot(ChatGPTBot):
 
     def create_img(self, query, retry_count=0, api_key=None):
         api_version = "2022-08-03-preview"
-        url = "{}dalle/text-to-image?api-version={}".format(openai.api_base, api_version)
+        url = f"{openai.api_base}dalle/text-to-image?api-version={api_version}"
         api_key = api_key or openai.api_key
         headers = {"api-key": api_key, "Content-Type": "application/json"}
         try:
@@ -182,12 +174,14 @@ class AzureChatGPTBot(ChatGPTBot):
             status = ""
             image_url = ""
             while status != "Succeeded":
-                logger.info("waiting for image create..., " + status + ",retry after " + retry_after + " seconds")
+                logger.info(
+                    f"waiting for image create..., {status},retry after {retry_after} seconds"
+                )
                 time.sleep(int(retry_after))
                 response = requests.get(operation_location, headers=headers)
                 status = response.json()["status"]
             image_url = response.json()["result"]["contentUrl"]
             return True, image_url
         except Exception as e:
-            logger.error("create image error: {}".format(e))
+            logger.error(f"create image error: {e}")
             return False, "图片生成失败"

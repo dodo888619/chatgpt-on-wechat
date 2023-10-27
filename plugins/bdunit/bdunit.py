@@ -47,10 +47,9 @@ class BDunit(Plugin):
             return
 
         content = e_context["context"].content
-        logger.debug("[BDunit] on_handle_context. content: %s" % content)
+        logger.debug(f"[BDunit] on_handle_context. content: {content}")
         parsed = self.getUnit2(content)
-        intent = self.getIntent(parsed)
-        if intent:  # 找到意图
+        if intent := self.getIntent(parsed):
             logger.debug("[BDunit] Baidu_AI Intent= %s", intent)
             reply = Reply()
             reply.type = ReplyType.TEXT
@@ -61,8 +60,7 @@ class BDunit(Plugin):
             e_context.action = EventAction.CONTINUE  # 事件继续，交付给下个插件或默认逻辑
 
     def get_help_text(self, **kwargs):
-        help_text = "本插件会处理询问实时日期时间，天气，数学运算等问题，这些技能由您的百度智能对话UNIT决定\n"
-        return help_text
+        return "本插件会处理询问实时日期时间，天气，数学运算等问题，这些技能由您的百度智能对话UNIT决定\n"
 
     def get_token(self):
         """获取访问百度UUNIT 的access_token
@@ -71,7 +69,7 @@ class BDunit(Plugin):
         Returns:
             string: access_token
         """
-        url = "https://aip.baidubce.com/oauth/2.0/token?client_id={}&client_secret={}&grant_type=client_credentials".format(self.api_key, self.secret_key)
+        url = f"https://aip.baidubce.com/oauth/2.0/token?client_id={self.api_key}&client_secret={self.secret_key}&grant_type=client_credentials"
         payload = ""
         headers = {"Content-Type": "application/json", "Accept": "application/json"}
 
@@ -87,7 +85,7 @@ class BDunit(Plugin):
         :returns: UNIT 解析结果。如果解析失败，返回 None
         """
 
-        url = "https://aip.baidubce.com/rpc/2.0/unit/service/v3/chat?access_token=" + self.access_token
+        url = f"https://aip.baidubce.com/rpc/2.0/unit/service/v3/chat?access_token={self.access_token}"
         request = {
             "query": query,
             "user_id": str(get_mac())[:32],
@@ -114,7 +112,7 @@ class BDunit(Plugin):
         :param query: 用户的指令字符串
         :returns: UNIT 解析结果。如果解析失败，返回 None
         """
-        url = "https://aip.baidubce.com/rpc/2.0/unit/service/chat?access_token=" + self.access_token
+        url = f"https://aip.baidubce.com/rpc/2.0/unit/service/chat?access_token={self.access_token}"
         request = {"query": query, "user_id": str(get_mac())[:32]}
         body = {
             "log_id": str(uuid.uuid1()),
@@ -137,13 +135,16 @@ class BDunit(Plugin):
         :param parsed: UNIT 解析结果
         :returns: 意图数组
         """
-        if parsed and "result" in parsed and "response_list" in parsed["result"]:
-            try:
-                return parsed["result"]["response_list"][0]["schema"]["intent"]
-            except Exception as e:
-                logger.warning(e)
-                return ""
-        else:
+        if (
+            not parsed
+            or "result" not in parsed
+            or "response_list" not in parsed["result"]
+        ):
+            return ""
+        try:
+            return parsed["result"]["response_list"][0]["schema"]["intent"]
+        except Exception as e:
+            logger.warning(e)
             return ""
 
     def hasIntent(self, parsed, intent):
@@ -159,9 +160,7 @@ class BDunit(Plugin):
             for response in response_list:
                 if "schema" in response and "intent" in response["schema"] and response["schema"]["intent"] == intent:
                     return True
-            return False
-        else:
-            return False
+        return False
 
     def getSlots(self, parsed, intent=""):
         """
@@ -183,9 +182,7 @@ class BDunit(Plugin):
             for response in response_list:
                 if "schema" in response and "intent" in response["schema"] and "slots" in response["schema"] and response["schema"]["intent"] == intent:
                     return response["schema"]["slots"]
-            return []
-        else:
-            return []
+        return []
 
     def getSlotWords(self, parsed, intent, name):
         """
@@ -197,11 +194,7 @@ class BDunit(Plugin):
         :returns: 命中该词槽的值的列表。
         """
         slots = self.getSlots(parsed, intent)
-        words = []
-        for slot in slots:
-            if slot["name"] == name:
-                words.append(slot["normalized_word"])
-        return words
+        return [slot["normalized_word"] for slot in slots if slot["name"] == name]
 
     def getSayByConfidence(self, parsed):
         """
@@ -210,19 +203,22 @@ class BDunit(Plugin):
         :param parsed: UNIT 解析结果
         :returns: UNIT 的回复文本
         """
-        if parsed and "result" in parsed and "response_list" in parsed["result"]:
-            response_list = parsed["result"]["response_list"]
-            answer = {}
-            for response in response_list:
-                if (
-                    "schema" in response
-                    and "intent_confidence" in response["schema"]
-                    and (not answer or response["schema"]["intent_confidence"] > answer["schema"]["intent_confidence"])
-                ):
-                    answer = response
-            return answer["action_list"][0]["say"]
-        else:
+        if (
+            not parsed
+            or "result" not in parsed
+            or "response_list" not in parsed["result"]
+        ):
             return ""
+        response_list = parsed["result"]["response_list"]
+        answer = {}
+        for response in response_list:
+            if (
+                "schema" in response
+                and "intent_confidence" in response["schema"]
+                and (not answer or response["schema"]["intent_confidence"] > answer["schema"]["intent_confidence"])
+            ):
+                answer = response
+        return answer["action_list"][0]["say"]
 
     def getSay(self, parsed, intent=""):
         """
@@ -247,6 +243,4 @@ class BDunit(Plugin):
                     except Exception as e:
                         logger.warning(e)
                         return ""
-            return ""
-        else:
-            return ""
+        return ""

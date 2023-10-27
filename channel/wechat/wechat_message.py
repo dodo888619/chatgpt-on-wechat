@@ -33,7 +33,7 @@ class WechatMessage(ChatMessage):
                 # 这里只能得到nickname， actual_user_id还是机器人的id
                 if "加入了群聊" in itchat_msg["Content"]:
                     self.actual_user_nickname = re.findall(r"\"(.*?)\"", itchat_msg["Content"])[-1]
-                elif "加入群聊" in itchat_msg["Content"]:
+                else:
                     self.actual_user_nickname = re.findall(r"\"(.*?)\"", itchat_msg["Content"])[0]
             elif "拍了拍我" in itchat_msg["Content"]:
                 self.ctype = ContextType.PATPAT
@@ -43,7 +43,9 @@ class WechatMessage(ChatMessage):
             else:
                 raise NotImplementedError("Unsupported note message: " + itchat_msg["Content"])
         else:
-            raise NotImplementedError("Unsupported message type: Type:{} MsgType:{}".format(itchat_msg["Type"], itchat_msg["MsgType"]))
+            raise NotImplementedError(
+                f'Unsupported message type: Type:{itchat_msg["Type"]} MsgType:{itchat_msg["MsgType"]}'
+            )
 
         self.from_user_id = itchat_msg["FromUserName"]
         self.to_user_id = itchat_msg["ToUserName"]
@@ -60,7 +62,7 @@ class WechatMessage(ChatMessage):
         try:  # 陌生人时候, User字段可能不存在
             # my_msg 为True是表示是自己发送的消息
             self.my_msg = itchat_msg["ToUserName"] == itchat_msg["User"]["UserName"] and \
-                          itchat_msg["ToUserName"] != itchat_msg["FromUserName"]
+                              itchat_msg["ToUserName"] != itchat_msg["FromUserName"]
             self.other_user_id = itchat_msg["User"]["UserName"]
             self.other_user_nickname = itchat_msg["User"]["NickName"]
             if self.other_user_id == self.from_user_id:
@@ -71,7 +73,7 @@ class WechatMessage(ChatMessage):
                 # 自身的展示名，当设置了群昵称时，该字段表示群昵称
                 self.self_display_name = itchat_msg["User"].get("Self").get("DisplayName")
         except KeyError as e:  # 处理偶尔没有对方信息的情况
-            logger.warn("[WX]get other_user_id failed: " + str(e))
+            logger.warn(f"[WX]get other_user_id failed: {str(e)}")
             if self.from_user_id == user_id:
                 self.other_user_id = self.to_user_id
             else:

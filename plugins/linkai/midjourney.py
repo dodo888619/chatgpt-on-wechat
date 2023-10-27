@@ -113,7 +113,7 @@ class MJBot:
             self._set_reply_text(self.get_help_text(verbose=True), e_context, level=ReplyType.INFO)
             return
 
-        if len(cmd) == 2 and (cmd[1] == "open" or cmd[1] == "close"):
+        if len(cmd) == 2 and cmd[1] in ["open", "close"]:
             # midjourney 开关指令
             is_open = True
             tips_text = "开启"
@@ -126,7 +126,7 @@ class MJBot:
 
         if not self.config.get("enabled"):
             logger.warn("Midjourney绘画未开启，请查看 plugins/linkai/config.json 中的配置")
-            self._set_reply_text(f"Midjourney绘画未开启", e_context, level=ReplyType.INFO)
+            self._set_reply_text("Midjourney绘画未开启", e_context, level=ReplyType.INFO)
             return
 
         if not self._check_rate_limit(session_id, e_context):
@@ -144,7 +144,7 @@ class MJBot:
             e_context.action = EventAction.BREAK_PASS
             return
 
-        elif mj_type == TaskType.UPSCALE or mj_type == TaskType.VARIATION:
+        elif mj_type in [TaskType.UPSCALE, TaskType.VARIATION]:
             # 图片放大/变换
             clist = cmd[1].split()
             if len(clist) < 2:
@@ -177,7 +177,7 @@ class MJBot:
             e_context['reply'] = reply
             e_context.action = EventAction.BREAK_PASS
         else:
-            self._set_reply_text(f"暂不支持该命令", e_context)
+            self._set_reply_text("暂不支持该命令", e_context)
 
     def generate(self, prompt: str, user_id: str, e_context: EventContext) -> Reply:
         """
@@ -192,17 +192,19 @@ class MJBot:
         body = {"prompt": prompt, "mode": mode, "auto_translate": self.config.get("auto_translate")}
         if not self.config.get("img_proxy"):
             body["img_proxy"] = False
-        res = requests.post(url=self.base_url + "/generate", json=body, headers=self.headers, timeout=(5, 40))
+        res = requests.post(
+            url=f"{self.base_url}/generate",
+            json=body,
+            headers=self.headers,
+            timeout=(5, 40),
+        )
         if res.status_code == 200:
             res = res.json()
             logger.debug(f"[MJ] image generate, res={res}")
             if res.get("code") == 200:
                 task_id = res.get("data").get("task_id")
                 real_prompt = res.get("data").get("real_prompt")
-                if mode == TaskMode.RELAX.value:
-                    time_str = "1~10分钟"
-                else:
-                    time_str = "1分钟"
+                time_str = "1~10分钟" if mode == TaskMode.RELAX.value else "1分钟"
                 content = f"🚀您的作品将在{time_str}左右完成，请耐心等待\n- - - - - - - - -\n"
                 if real_prompt:
                     content += f"初始prompt: {prompt}\n转换后prompt: {real_prompt}"
@@ -219,11 +221,11 @@ class MJBot:
         else:
             res_json = res.json()
             logger.error(f"[MJ] generate error, msg={res_json.get('message')}, status_code={res.status_code}")
-            if res.status_code == INVALID_REQUEST:
-                reply = Reply(ReplyType.ERROR, "图片生成失败，请检查提示词参数或内容")
-            else:
-                reply = Reply(ReplyType.ERROR, "图片生成失败，请稍后再试")
-            return reply
+            return (
+                Reply(ReplyType.ERROR, "图片生成失败，请检查提示词参数或内容")
+                if res.status_code == INVALID_REQUEST
+                else Reply(ReplyType.ERROR, "图片生成失败，请稍后再试")
+            )
 
     def do_operate(self, task_type: TaskType, user_id: str, img_id: str, e_context: EventContext,
                    index: int = None) -> Reply:
@@ -233,7 +235,12 @@ class MJBot:
             body["index"] = index
         if not self.config.get("img_proxy"):
             body["img_proxy"] = False
-        res = requests.post(url=self.base_url + "/operate", json=body, headers=self.headers, timeout=(5, 40))
+        res = requests.post(
+            url=f"{self.base_url}/operate",
+            json=body,
+            headers=self.headers,
+            timeout=(5, 40),
+        )
         logger.debug(res)
         if res.status_code == 200:
             res = res.json()
@@ -252,13 +259,10 @@ class MJBot:
                 self._do_check_task(task, e_context)
                 return reply
         else:
-            error_msg = ""
-            if res.status_code == NOT_FOUND_ORIGIN_IMAGE:
-                error_msg = "请输入正确的图片ID"
+            error_msg = "请输入正确的图片ID" if res.status_code == NOT_FOUND_ORIGIN_IMAGE else ""
             res_json = res.json()
             logger.error(f"[MJ] operate error, msg={res_json.get('message')}, status_code={res.status_code}")
-            reply = Reply(ReplyType.ERROR, error_msg or "图片生成失败，请稍后再试")
-            return reply
+            return Reply(ReplyType.ERROR, error_msg or "图片生成失败，请稍后再试")
 
     def check_task_sync(self, task: MJTask, e_context: EventContext):
         logger.debug(f"[MJ] start check task status, {task}")
@@ -314,7 +318,11 @@ class MJBot:
         # send info
         trigger_prefix = conf().get("plugin_trigger_prefix", "$")
         text = ""
-        if task.task_type == TaskType.GENERATE or task.task_type == TaskType.VARIATION or task.task_type == TaskType.RESET:
+        if task.task_type in [
+            TaskType.GENERATE,
+            TaskType.VARIATION,
+            TaskType.RESET,
+        ]:
             text = f"🎨绘画完成!\n"
             if task.raw_prompt:
                 text += f"prompt: {task.raw_prompt}\n"
@@ -409,7 +417,7 @@ def _send(channel, reply: Reply, context, retry_cnt=0):
     try:
         channel.send(reply, context)
     except Exception as e:
-        logger.error("[WX] sendMsg error: {}".format(str(e)))
+        logger.error(f"[WX] sendMsg error: {str(e)}")
         if isinstance(e, NotImplementedError):
             return
         logger.exception(e)
@@ -421,7 +429,6 @@ def _send(channel, reply: Reply, context, retry_cnt=0):
 def check_prefix(content, prefix_list):
     if not prefix_list:
         return None
-    for prefix in prefix_list:
-        if content.startswith(prefix):
-            return prefix
-    return None
+    return next(
+        (prefix for prefix in prefix_list if content.startswith(prefix)), None
+    )

@@ -30,14 +30,9 @@ class LinkAIBot(Bot, OpenAIImage):
             return self._chat(query, context)
         elif context.type == ContextType.IMAGE_CREATE:
             ok, res = self.create_img(query, 0)
-            if ok:
-                reply = Reply(ReplyType.IMAGE_URL, res)
-            else:
-                reply = Reply(ReplyType.ERROR, res)
-            return reply
+            return Reply(ReplyType.IMAGE_URL, res) if ok else Reply(ReplyType.ERROR, res)
         else:
-            reply = Reply(ReplyType.ERROR, "Bot不支持处理{}类型的消息".format(context.type))
-            return reply
+            return Reply(ReplyType.ERROR, f"Bot不支持处理{context.type}类型的消息")
 
     def _chat(self, query, context, retry_count=0) -> Reply:
         """
@@ -80,12 +75,16 @@ class LinkAIBot(Bot, OpenAIImage):
                 "presence_penalty": conf().get("presence_penalty", 0.0),  # [-2,2]之间，该值越大则更倾向于产生不同的内容
             }
             logger.info(f"[LINKAI] query={query}, app_code={app_code}, mode={body.get('model')}")
-            headers = {"Authorization": "Bearer " + linkai_api_key}
+            headers = {"Authorization": f"Bearer {linkai_api_key}"}
 
             # do http request
             base_url = conf().get("linkai_api_base", "https://api.link-ai.chat")
-            res = requests.post(url=base_url + "/v1/chat/completions", json=body, headers=headers,
-                                timeout=conf().get("request_timeout", 180))
+            res = requests.post(
+                url=f"{base_url}/v1/chat/completions",
+                json=body,
+                headers=headers,
+                timeout=conf().get("request_timeout", 180),
+            )
             if res.status_code == 200:
                 # execute success
                 response = res.json()
@@ -142,8 +141,12 @@ class LinkAIBot(Bot, OpenAIImage):
 
             # do http request
             base_url = conf().get("linkai_api_base", "https://api.link-ai.chat")
-            res = requests.post(url=base_url + "/v1/chat/completions", json=body, headers=headers,
-                                timeout=conf().get("request_timeout", 180))
+            res = requests.post(
+                url=f"{base_url}/v1/chat/completions",
+                json=body,
+                headers=headers,
+                timeout=conf().get("request_timeout", 180),
+            )
             if res.status_code == 200:
                 # execute success
                 response = res.json()

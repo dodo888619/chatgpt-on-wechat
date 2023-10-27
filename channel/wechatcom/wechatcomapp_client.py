@@ -11,8 +11,7 @@ class WechatComAppClient(WeChatClient):
 
     def fetch_access_token(self):  # 重载父类方法，加锁避免多线程重复获取access_token
         with self.fetch_access_token_lock:
-            access_token = self.session.get(self.access_token_key)
-            if access_token:
+            if access_token := self.session.get(self.access_token_key):
                 if not self.expires_at:
                     return access_token
                 timestamp = time.time()

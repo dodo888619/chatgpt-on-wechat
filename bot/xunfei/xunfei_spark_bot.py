@@ -51,7 +51,7 @@ class XunFeiBot(Bot):
 
     def reply(self, query, context: Context = None) -> Reply:
         if context.type == ContextType.TEXT:
-            logger.info("[XunFei] query={}".format(query))
+            logger.info(f"[XunFei] query={query}")
             session_id = context["session_id"]
             request_id = self.gen_request_id(session_id)
             reply_map[request_id] = ""
@@ -81,16 +81,14 @@ class XunFeiBot(Bot):
                     depth += 1
                 except Exception as e:
                     depth += 1
-                    continue
             t2 = time.time()
             logger.info(f"[XunFei-API] response={reply_map[request_id]}, time={t2 - t1}s, usage={usage}")
             self.sessions.session_reply(reply_map[request_id], session_id, usage.get("total_tokens"))
             reply = Reply(ReplyType.TEXT, reply_map[request_id])
             del reply_map[request_id]
-            return reply
         else:
-            reply = Reply(ReplyType.ERROR, "Bot不支持处理{}类型的消息".format(context.type))
-            return reply
+            reply = Reply(ReplyType.ERROR, f"Bot不支持处理{context.type}类型的消息")
+        return reply
 
     def create_web_socket(self, prompt, session_id, temperature=0.5):
         logger.info(f"[XunFei] start connect, prompt={prompt}")
@@ -108,7 +106,7 @@ class XunFeiBot(Bot):
         ws.run_forever(sslopt={"cert_reqs": ssl.CERT_NONE})
 
     def gen_request_id(self, session_id: str):
-        return session_id + "_" + str(int(time.time())) + "" + str(random.randint(0, 100))
+        return f"{session_id}_{int(time.time())}{random.randint(0, 100)}"
 
     # 生成url
     def create_url(self):
@@ -117,9 +115,9 @@ class XunFeiBot(Bot):
         date = format_date_time(mktime(now.timetuple()))
 
         # 拼接字符串
-        signature_origin = "host: " + self.host + "\n"
-        signature_origin += "date: " + date + "\n"
-        signature_origin += "GET " + self.path + " HTTP/1.1"
+        signature_origin = f"host: {self.host}" + "\n"
+        signature_origin += f"date: {date}" + "\n"
+        signature_origin += f"GET {self.path} HTTP/1.1"
 
         # 进行hmac-sha256进行加密
         signature_sha = hmac.new(self.api_secret.encode('utf-8'), signature_origin.encode('utf-8'),
@@ -128,7 +126,7 @@ class XunFeiBot(Bot):
         signature_sha_base64 = base64.b64encode(signature_sha).decode(encoding='utf-8')
 
         authorization_origin = f'api_key="{self.api_key}", algorithm="hmac-sha256", headers="host date request-line", ' \
-                               f'signature="{signature_sha_base64}"'
+                                   f'signature="{signature_sha_base64}"'
 
         authorization = base64.b64encode(authorization_origin.encode('utf-8')).decode(encoding='utf-8')
 
@@ -138,35 +136,24 @@ class XunFeiBot(Bot):
             "date": date,
             "host": self.host
         }
-        # 拼接鉴权参数，生成url
-        url = self.spark_url + '?' + urlencode(v)
-        # 此处打印出建立连接时候的url,参考本demo的时候可取消上方打印的注释，比对相同参数时生成的url与自己代码生成的url是否一致
-        return url
+        return f'{self.spark_url}?{urlencode(v)}'
 
     def gen_params(self, appid, domain, question):
         """
         通过appid和用户的提问来生成请参数
         """
-        data = {
-            "header": {
-                "app_id": appid,
-                "uid": "1234"
-            },
+        return {
+            "header": {"app_id": appid, "uid": "1234"},
             "parameter": {
                 "chat": {
                     "domain": domain,
                     "random_threshold": 0.5,
                     "max_tokens": 2048,
-                    "auditing": "default"
+                    "auditing": "default",
                 }
             },
-            "payload": {
-                "message": {
-                    "text": question
-                }
-            }
+            "payload": {"message": {"text": question}},
         }
-        return data
 
 
 class ReplyItem:
@@ -227,24 +214,16 @@ def gen_params(appid, domain, question, temperature=0.5):
     """
     通过appid和用户的提问来生成请参数
     """
-    data = {
-        "header": {
-            "app_id": appid,
-            "uid": "1234"
-        },
+    return {
+        "header": {"app_id": appid, "uid": "1234"},
         "parameter": {
             "chat": {
                 "domain": domain,
                 "temperature": temperature,
                 "random_threshold": 0.5,
                 "max_tokens": 2048,
-                "auditing": "default"
+                "auditing": "default",
             }
         },
-        "payload": {
-            "message": {
-                "text": question
-            }
-        }
+        "payload": {"message": {"text": question}},
     }
-    return data

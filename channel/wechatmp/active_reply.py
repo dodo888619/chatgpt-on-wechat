@@ -42,13 +42,7 @@ class Query:
                 message_id = wechatmp_msg.msg_id
 
                 logger.info(
-                    "[wechatmp] {}:{} Receive post query {} {}: {}".format(
-                        web.ctx.env.get("REMOTE_ADDR"),
-                        web.ctx.env.get("REMOTE_PORT"),
-                        from_user,
-                        message_id,
-                        content,
-                    )
+                    f'[wechatmp] {web.ctx.env.get("REMOTE_ADDR")}:{web.ctx.env.get("REMOTE_PORT")} Receive post query {from_user} {message_id}: {content}'
                 )
                 if msg.type == "voice" and wechatmp_msg.ctype == ContextType.TEXT and conf().get("voice_reply_voice", False):
                     context = channel._compose_context(wechatmp_msg.ctype, content, isgroup=False, desire_rtype=ReplyType.VOICE, msg=wechatmp_msg)
@@ -59,14 +53,12 @@ class Query:
                 # The reply will be sent by channel.send() in another thread
                 return "success"
             elif msg.type == "event":
-                logger.info("[wechatmp] Event {} from {}".format(msg.event, msg.source))
-                if msg.event in ["subscribe", "subscribe_scan"]:
-                    reply_text = subscribe_msg()
-                    if reply_text:
-                        replyPost = create_reply(reply_text, msg)
-                        return encrypt_func(replyPost.render())
-                else:
+                logger.info(f"[wechatmp] Event {msg.event} from {msg.source}")
+                if msg.event not in ["subscribe", "subscribe_scan"]:
                     return "success"
+                if reply_text := subscribe_msg():
+                    replyPost = create_reply(reply_text, msg)
+                    return encrypt_func(replyPost.render())
             else:
                 logger.info("暂且不处理")
             return "success"

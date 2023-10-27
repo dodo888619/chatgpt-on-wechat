@@ -19,7 +19,7 @@ class OpenAIImage(object):
         try:
             if conf().get("rate_limit_dalle") and not self.tb4dalle.get_token():
                 return False, "请求太快了，请休息一下再问我吧"
-            logger.info("[OPEN_AI] image_query={}".format(query))
+            logger.info(f"[OPEN_AI] image_query={query}")
             response = openai.Image.create(
                 api_key=api_key,
                 prompt=query,  # 图片描述
@@ -27,13 +27,13 @@ class OpenAIImage(object):
                 size=conf().get("image_create_size", "256x256"),  # 图片大小,可选有 256x256, 512x512, 1024x1024
             )
             image_url = response["data"][0]["url"]
-            logger.info("[OPEN_AI] image_url={}".format(image_url))
+            logger.info(f"[OPEN_AI] image_url={image_url}")
             return True, image_url
         except openai.error.RateLimitError as e:
             logger.warn(e)
             if retry_count < 1:
                 time.sleep(5)
-                logger.warn("[OPEN_AI] ImgCreate RateLimit exceed, 第{}次重试".format(retry_count + 1))
+                logger.warn(f"[OPEN_AI] ImgCreate RateLimit exceed, 第{retry_count + 1}次重试")
                 return self.create_img(query, retry_count + 1)
             else:
                 return False, "提问太快啦，请休息一下再问我吧"

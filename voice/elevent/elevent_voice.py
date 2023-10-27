@@ -26,8 +26,8 @@ class ElevenLabsVoice(Voice):
             voice=name,
             model='eleven_multilingual_v1'
         )
-        fileName = TmpDir().path() + "reply-" + str(int(time.time())) + "-" + str(hash(text) & 0x7FFFFFFF) + ".mp3"
+        fileName = f"{TmpDir().path()}reply-{int(time.time())}-{str(hash(text) & 2147483647)}.mp3"
         with open(fileName, "wb") as f:
             f.write(audio)
-        logger.info("[ElevenLabs] textToVoice text={} voice file name={}".format(text, fileName))
+        logger.info(f"[ElevenLabs] textToVoice text={text} voice file name={fileName}")
         return Reply(ReplyType.VOICE, fileName)

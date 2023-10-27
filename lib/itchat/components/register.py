@@ -29,7 +29,7 @@ def auto_login(self, hotReload=False, statusStorageDir='itchat.pkl',
                 loginCallback=loginCallback, exitCallback=exitCallback)
         if rval:
             return
-        logger.error('Hot reload failed, logging in normally, error={}'.format(rval))
+        logger.error(f'Hot reload failed, logging in normally, error={rval}')
         self.logout()
         self.login(enableCmdQR=enableCmdQR, picDir=picDir, qrCallback=qrCallback,
             loginCallback=loginCallback, exitCallback=exitCallback)
@@ -69,7 +69,7 @@ def configured_reply(self):
 def msg_register(self, msgType, isFriendChat=False, isGroupChat=False, isMpChat=False):
     ''' a decorator constructor
         return a specific decorator based on information given '''
-    if not (isinstance(msgType, list) or isinstance(msgType, tuple)):
+    if not (isinstance(msgType, (list, tuple))):
         msgType = [msgType]
     def _msg_register(fn):
         for _msgType in msgType:
@@ -82,6 +82,7 @@ def msg_register(self, msgType, isFriendChat=False, isGroupChat=False, isMpChat=
             if not any((isFriendChat, isGroupChat, isMpChat)):
                 self.functionDict['FriendChat'][_msgType] = fn
         return fn
+
     return _msg_register
 
 def run(self, debug=False, blockThread=True):

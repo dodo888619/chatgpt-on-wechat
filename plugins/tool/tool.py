@@ -65,7 +65,7 @@ class Tool(Plugin):
             e_context.action = EventAction.CONTINUE
             return
 
-        logger.debug("[tool] on_handle_context. content: %s" % content)
+        logger.debug(f"[tool] on_handle_context. content: {content}")
         reply = Reply()
         reply.type = ReplyType.TEXT
         trigger_prefix = conf().get("plugin_trigger_prefix", "$")
@@ -162,7 +162,7 @@ class Tool(Plugin):
             if tool in get_all_tool_names():
                 valid_list.append(tool)
             else:
-                logger.warning("[tool] filter invalid tool: " + repr(tool))
+                logger.warning(f"[tool] filter invalid tool: {repr(tool)}")
         return valid_list
 
     def _reset_app(self) -> App:

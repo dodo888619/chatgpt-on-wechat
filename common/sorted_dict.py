@@ -22,11 +22,11 @@ class SortedDict(dict):
                     self.heap[i] = (self.sort_func(key, value), key)
                     heapq.heapify(self.heap)
                     break
-            self.sorted_keys = None
         else:
             super().__setitem__(key, value)
             heapq.heappush(self.heap, (self.sort_func(key, value), key))
-            self.sorted_keys = None
+
+        self.sorted_keys = None
 
     def __delitem__(self, key):
         super().__delitem__(key)
@@ -45,8 +45,7 @@ class SortedDict(dict):
     def items(self):
         if self.sorted_keys is None:
             self.sorted_keys = [k for _, k in sorted(self.heap, reverse=self.reverse)]
-        sorted_items = [(k, self[k]) for k in self.sorted_keys]
-        return sorted_items
+        return [(k, self[k]) for k in self.sorted_keys]
 
     def _update_heap(self, key):
         for i, (priority, k) in enumerate(self.heap):

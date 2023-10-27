@@ -38,8 +38,7 @@ class LinkAI(Plugin):
             # filter content no need solve
             return
 
-        mj_type = self.mj_bot.judge_mj_task_type(e_context)
-        if mj_type:
+        if mj_type := self.mj_bot.judge_mj_task_type(e_context):
             # MJ作图任务处理
             self.mj_bot.process_mj_task(mj_type, e_context)
             return
@@ -61,7 +60,7 @@ class LinkAI(Plugin):
             _set_reply_text(self.get_help_text(verbose=True), e_context, level=ReplyType.INFO)
             return
 
-        if len(cmd) == 2 and (cmd[1] == "open" or cmd[1] == "close"):
+        if len(cmd) == 2 and cmd[1] in ["open", "close"]:
             # 知识库开关指令
             if not _is_admin(e_context):
                 _set_reply_text("需要管理员权限执行", e_context, level=ReplyType.ERROR)
@@ -86,8 +85,7 @@ class LinkAI(Plugin):
                 return
             app_code = cmd[2]
             group_name = context.kwargs.get("msg").from_user_nickname
-            group_mapping = self.config.get("group_app_map")
-            if group_mapping:
+            if group_mapping := self.config.get("group_app_map"):
                 group_mapping[group_name] = app_code
             else:
                 self.config["group_app_map"] = {group_name: app_code}
@@ -113,8 +111,7 @@ class LinkAI(Plugin):
         context = e_context['context']
         # 群聊应用管理
         group_name = context.kwargs.get("msg").from_user_nickname
-        app_code = self._fetch_group_app_code(group_name)
-        if app_code:
+        if app_code := self._fetch_group_app_code(group_name):
             context.kwargs['app_code'] = app_code
 
     def _fetch_group_app_code(self, group_name: str) -> str:
@@ -123,10 +120,8 @@ class LinkAI(Plugin):
         :param group_name: 群聊名称
         :return: 应用code
         """
-        group_mapping = self.config.get("group_app_map")
-        if group_mapping:
-            app_code = group_mapping.get(group_name) or group_mapping.get("ALL_GROUP")
-            return app_code
+        if group_mapping := self.config.get("group_app_map"):
+            return group_mapping.get(group_name) or group_mapping.get("ALL_GROUP")
 
     def get_help_text(self, verbose=False, **kwargs):
         trigger_prefix = _get_trigger_prefix()

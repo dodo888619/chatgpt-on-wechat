@@ -140,10 +140,10 @@ def get_help_text(isadmin, isgroup):
             continue
         if cmd == "id" and conf().get("channel_type", "wx") not in ["wxy", "wechatmp"]:
             continue
-        alias = ["#" + a for a in info["alias"][:1]]
+        alias = [f"#{a}" for a in info["alias"][:1]]
         help_text += f"{','.join(alias)} "
         if "args" in info:
-            args = [a for a in info["args"]]
+            args = list(info["args"])
             help_text += f"{' '.join(args)}"
         help_text += f": {info['desc']}\n"
 
@@ -159,10 +159,10 @@ def get_help_text(isadmin, isgroup):
     if ADMIN_COMMANDS and isadmin:
         help_text += "\n\n管理员指令：\n"
         for cmd, info in ADMIN_COMMANDS.items():
-            alias = ["#" + a for a in info["alias"][:1]]
+            alias = [f"#{a}" for a in info["alias"][:1]]
             help_text += f"{','.join(alias)} "
             if "args" in info:
-                args = [a for a in info["args"]]
+                args = list(info["args"])
                 help_text += f"{' '.join(args)}"
             help_text += f": {info['desc']}\n"
     return help_text
@@ -189,7 +189,7 @@ class Godcmd(Plugin):
                     json.dump(gconf, f, indent=4)
         if gconf["password"] == "":
             self.temp_password = "".join(random.sample(string.digits, 4))
-            logger.info("[Godcmd] 因未设置口令，本次的临时口令为%s。" % self.temp_password)
+            logger.info(f"[Godcmd] 因未设置口令，本次的临时口令为{self.temp_password}。")
         else:
             self.temp_password = None
         custom_commands = conf().get("clear_memory_commands", [])

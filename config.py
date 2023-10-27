@@ -141,12 +141,12 @@ class Config(dict):
 
     def __getitem__(self, key):
         if key not in available_setting:
-            raise Exception("key {} not in available_setting".format(key))
+            raise Exception(f"key {key} not in available_setting")
         return super().__getitem__(key)
 
     def __setitem__(self, key, value):
         if key not in available_setting:
-            raise Exception("key {} not in available_setting".format(key))
+            raise Exception(f"key {key} not in available_setting")
         return super().__setitem__(key, value)
 
     def get(self, key, default=None):
@@ -171,7 +171,7 @@ class Config(dict):
         except FileNotFoundError as e:
             logger.info("[Config] User datas file not found, ignore.")
         except Exception as e:
-            logger.info("[Config] User datas error: {}".format(e))
+            logger.info(f"[Config] User datas error: {e}")
             self.user_datas = {}
 
     def save_user_datas(self):
@@ -180,7 +180,7 @@ class Config(dict):
                 pickle.dump(self.user_datas, f)
                 logger.info("[Config] User datas saved.")
         except Exception as e:
-            logger.info("[Config] User datas error: {}".format(e))
+            logger.info(f"[Config] User datas error: {e}")
 
 
 config = Config()
@@ -194,7 +194,7 @@ def load_config():
         config_path = "./config-template.json"
 
     config_str = read_file(config_path)
-    logger.debug("[INIT] config str: {}".format(config_str))
+    logger.debug(f"[INIT] config str: {config_str}")
 
     # 将json字符串反序列化为dict类型
     config = Config(json.loads(config_str))
@@ -204,7 +204,7 @@ def load_config():
     for name, value in os.environ.items():
         name = name.lower()
         if name in available_setting:
-            logger.info("[INIT] override config by environ args: {}={}".format(name, value))
+            logger.info(f"[INIT] override config by environ args: {name}={value}")
             try:
                 config[name] = eval(value)
             except:
@@ -219,7 +219,7 @@ def load_config():
         logger.setLevel(logging.DEBUG)
         logger.debug("[INIT] set log level to DEBUG")
 
-    logger.info("[INIT] load config: {}".format(config))
+    logger.info(f"[INIT] load config: {config}")
 
     config.load_user_datas()
 
@@ -240,7 +240,7 @@ def conf():
 def get_appdata_dir():
     data_path = os.path.join(get_root(), conf().get("appdata_dir", ""))
     if not os.path.exists(data_path):
-        logger.info("[INIT] data path not exists, create it: {}".format(data_path))
+        logger.info(f"[INIT] data path not exists, create it: {data_path}")
         os.makedirs(data_path)
     return data_path
 

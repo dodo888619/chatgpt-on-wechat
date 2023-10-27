@@ -28,8 +28,7 @@ class RolePlay:
         session = self.bot.sessions.build_session(self.sessionid)
         if session.system_prompt != self.desc:  # 目前没有触发session过期事件，这里先简单判断，然后重置
             session.set_system_prompt(self.desc)
-        prompt = self.wrapper % user_action
-        return prompt
+        return self.wrapper % user_action
 
 
 @plugins.register(
@@ -62,7 +61,7 @@ class Role(Plugin):
                         logger.debug(f"[Role] no role found for tag {tag} ")
                         del self.tags[tag]
 
-            if len(self.roles) == 0:
+            if not self.roles:
                 raise Exception("no role found")
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
             self.roleplays = {}
@@ -150,7 +149,7 @@ class Role(Plugin):
             return
         elif sessionid not in self.roleplays:
             return
-        logger.debug("[Role] on_handle_context. content: %s" % content)
+        logger.debug(f"[Role] on_handle_context. content: {content}")
         if desckey is not None:
             if len(clist) == 1 or (len(clist) > 1 and clist[1].lower() in ["help", "帮助"]):
                 reply = Reply(ReplyType.INFO, self.get_help_text(verbose=True))
@@ -170,10 +169,10 @@ class Role(Plugin):
                     self.roles[role][desckey],
                     self.roles[role].get("wrapper", "%s"),
                 )
-                reply = Reply(ReplyType.INFO, f"预设角色为 {role}:\n" + self.roles[role][desckey])
+                reply = Reply(ReplyType.INFO, f"预设角色为 {role}:\n{self.roles[role][desckey]}")
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS
-        elif customize == True:
+        elif customize:
             self.roleplays[sessionid] = RolePlay(bot, sessionid, clist[1], "%s")
             reply = Reply(ReplyType.INFO, f"角色设定为:\n{clist[1]}")
             e_context["reply"] = reply

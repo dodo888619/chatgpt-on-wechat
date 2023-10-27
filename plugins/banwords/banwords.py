@@ -41,8 +41,7 @@ class Banwords(Plugin):
             with open(banwords_path, "r", encoding="utf-8") as f:
                 words = []
                 for line in f:
-                    word = line.strip()
-                    if word:
+                    if word := line.strip():
                         words.append(word)
             self.searchr.SetKeywords(words)
             self.handlers[Event.ON_HANDLE_CONTEXT] = self.on_handle_context
@@ -62,11 +61,10 @@ class Banwords(Plugin):
             return
 
         content = e_context["context"].content
-        logger.debug("[Banwords] on_handle_context. content: %s" % content)
+        logger.debug(f"[Banwords] on_handle_context. content: {content}")
         if self.action == "ignore":
-            f = self.searchr.FindFirst(content)
-            if f:
-                logger.info("[Banwords] %s in message" % f["Keyword"])
+            if f := self.searchr.FindFirst(content):
+                logger.info(f'[Banwords] {f["Keyword"]} in message')
                 e_context.action = EventAction.BREAK_PASS
                 return
         elif self.action == "replace":
@@ -83,9 +81,8 @@ class Banwords(Plugin):
         reply = e_context["reply"]
         content = reply.content
         if self.reply_action == "ignore":
-            f = self.searchr.FindFirst(content)
-            if f:
-                logger.info("[Banwords] %s in reply" % f["Keyword"])
+            if f := self.searchr.FindFirst(content):
+                logger.info(f'[Banwords] {f["Keyword"]} in reply')
                 e_context["reply"] = None
                 e_context.action = EventAction.BREAK_PASS
                 return

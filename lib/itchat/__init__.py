@@ -35,12 +35,7 @@ def load_sync_itchat() -> Core:
     return Core()
 
 
-if ASYNC_COMPONENTS:
-    instance = load_async_itchat()
-else:
-    instance = load_sync_itchat()
-
-
+instance = load_async_itchat() if ASYNC_COMPONENTS else load_sync_itchat()
 instanceList = [instance]
 
 # I really want to use sys.modules[__name__] = originInstance
