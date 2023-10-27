@@ -25,27 +25,23 @@ class ChatGPTSession(Session):
             precise = False
             if cur_tokens is None:
                 raise e
-            logger.debug("Exception when counting tokens precisely for query: {}".format(e))
+            logger.debug(f"Exception when counting tokens precisely for query: {e}")
         while cur_tokens > max_tokens:
             if len(self.messages) > 2:
                 self.messages.pop(1)
             elif len(self.messages) == 2 and self.messages[1]["role"] == "assistant":
                 self.messages.pop(1)
-                if precise:
-                    cur_tokens = self.calc_tokens()
-                else:
-                    cur_tokens = cur_tokens - max_tokens
+                cur_tokens = self.calc_tokens() if precise else cur_tokens - max_tokens
                 break
             elif len(self.messages) == 2 and self.messages[1]["role"] == "user":
-                logger.warn("user message exceed max_tokens. total_tokens={}".format(cur_tokens))
+                logger.warn(f"user message exceed max_tokens. total_tokens={cur_tokens}")
                 break
             else:
-                logger.debug("max_tokens={}, total_tokens={}, len(messages)={}".format(max_tokens, cur_tokens, len(self.messages)))
+                logger.debug(
+                    f"max_tokens={max_tokens}, total_tokens={cur_tokens}, len(messages)={len(self.messages)}"
+                )
                 break
-            if precise:
-                cur_tokens = self.calc_tokens()
-            else:
-                cur_tokens = cur_tokens - max_tokens
+            cur_tokens = self.calc_tokens() if precise else cur_tokens - max_tokens
         return cur_tokens
 
     def calc_tokens(self):
@@ -94,7 +90,4 @@ def num_tokens_from_messages(messages, model):
 
 def num_tokens_by_character(messages):
     """Returns the number of tokens used by a list of messages."""
-    tokens = 0
-    for msg in messages:
-        tokens += len(msg["content"])
-    return tokens
+    return sum(len(msg["content"]) for msg in messages)

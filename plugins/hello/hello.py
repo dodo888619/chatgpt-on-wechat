@@ -40,12 +40,12 @@ class Hello(Plugin):
         if e_context["context"].type == ContextType.PATPAT:
             e_context["context"].type = ContextType.TEXT
             msg: ChatMessage = e_context["context"]["msg"]
-            e_context["context"].content = f"请你随机使用一种风格介绍你自己，并告诉用户输入#help可以查看帮助信息。"
+            e_context["context"].content = "请你随机使用一种风格介绍你自己，并告诉用户输入#help可以查看帮助信息。"
             e_context.action = EventAction.BREAK  # 事件结束，进入默认处理逻辑
             return
 
         content = e_context["context"].content
-        logger.debug("[Hello] on_handle_context. content: %s" % content)
+        logger.debug(f"[Hello] on_handle_context. content: {content}")
         if content == "Hello":
             reply = Reply()
             reply.type = ReplyType.TEXT
@@ -71,5 +71,4 @@ class Hello(Plugin):
             e_context.action = EventAction.CONTINUE  # 事件继续，交付给下个插件或默认逻辑
 
     def get_help_text(self, **kwargs):
-        help_text = "输入Hello，我会回复你的名字\n输入End，我会回复你世界的图片\n"
-        return help_text
+        return "输入Hello，我会回复你的名字\n输入End，我会回复你世界的图片\n"

@@ -28,4 +28,4 @@ class Reply:
         self.content = content
 
     def __str__(self):
-        return "Reply(type={}, content={})".format(self.type, self.content)
+        return f"Reply(type={self.type}, content={self.content})"

@@ -94,7 +94,7 @@ def any_to_amr(any_path, amr_path):
         shutil.copy2(any_path, amr_path)
         return
     if any_path.endswith(".sil") or any_path.endswith(".silk") or any_path.endswith(".slk"):
-        raise NotImplementedError("Not support file type: {}".format(any_path))
+        raise NotImplementedError(f"Not support file type: {any_path}")
     audio = AudioSegment.from_file(any_path)
     audio = audio.set_frame_rate(8000)  # only support 8000
     audio.export(amr_path, format="amr")

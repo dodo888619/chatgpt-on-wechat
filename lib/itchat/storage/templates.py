@@ -12,8 +12,9 @@ class AttributeDict(dict):
         try:
             return self[keyName]
         except KeyError:
-            raise AttributeError("'%s' object has no attribute '%s'" % (
-                self.__class__.__name__.split('.')[-1], keyName))
+            raise AttributeError(
+                f"'{self.__class__.__name__.split('.')[-1]}' object has no attribute '{keyName}'"
+            )
     def get(self, v, d=None):
         try:
             return self[v]
@@ -60,10 +61,9 @@ class ContactList(list):
         self.contactInitFn = None
         self.contactClass = User
     def __str__(self):
-        return '[%s]' % ', '.join([repr(v) for v in self])
+        return f"[{', '.join([repr(v) for v in self])}]"
     def __repr__(self):
-        return '<%s: %s>' % (self.__class__.__name__.split('.')[-1],
-            self.__str__())
+        return f"<{self.__class__.__name__.split('.')[-1]}: {self.__str__()}>"
 
 class AbstractUserDict(AttributeDict):
     def __init__(self, *args, **kwargs):
@@ -75,37 +75,61 @@ class AbstractUserDict(AttributeDict):
     def core(self, value):
         self._core = ref(value)
     def update(self):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not be updated' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not be updated',
+                }
+            }
+        )
     def set_alias(self, alias):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not set alias' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not set alias',
+                }
+            }
+        )
     def set_pinned(self, isPinned=True):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not be pinned' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not be pinned',
+                }
+            }
+        )
     def verify(self):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s do not need verify' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} do not need verify',
+                }
+            }
+        )
     def get_head_image(self, imageDir=None):
         return self.core.get_head_img(self.userName, picDir=imageDir)
     def delete_member(self, userName):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not delete member' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not delete member',
+                }
+            }
+        )
     def add_member(self, userName):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not add member' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not add member',
+                }
+            }
+        )
     def send_raw_msg(self, msgType, content):
         return self.core.send_raw_msg(msgType, content, self.userName)
     def send_msg(self, msg='Test Message'):
@@ -120,10 +144,14 @@ class AbstractUserDict(AttributeDict):
         return self.core.send(msg, self.userName, mediaId)
     def search_member(self, name=None, userName=None, remarkName=None, nickName=None,
             wechatAccount=None):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s do not have members' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} do not have members',
+                }
+            }
+        )
     def __deepcopy__(self, memo):
         r = self.__class__()
         for k, v in self.items():
@@ -131,11 +159,9 @@ class AbstractUserDict(AttributeDict):
         r.core = self.core
         return r
     def __str__(self):
-        return '{%s}' % ', '.join(
-            ['%s: %s' % (repr(k),repr(v)) for k,v in self.items()])
+        return ('{%s}' % ', '.join([f'{repr(k)}: {repr(v)}' for k,v in self.items()]))
     def __repr__(self):
-        return '<%s: %s>' % (self.__class__.__name__.split('.')[-1],
-            self.__str__())
+        return f"<{self.__class__.__name__.split('.')[-1]}: {self.__str__()}>"
     def __getstate__(self):
         return 1
     def __setstate__(self, state):
@@ -228,23 +254,28 @@ class Chatroom(AbstractUserDict):
                     if matchDict[k] is None:
                         del matchDict[k]
                 if name: # select based on name
-                    contact = []
-                    for m in self.memberList:
-                        if any([m.get(k) == name for k in ('RemarkName', 'NickName', 'Alias')]):
-                            contact.append(m)
+                    contact = [
+                        m
+                        for m in self.memberList
+                        if any(
+                            m.get(k) == name
+                            for k in ('RemarkName', 'NickName', 'Alias')
+                        )
+                    ]
                 else:
                     contact = self.memberList[:]
                 if matchDict: # select again based on matchDict
-                    friendList = []
-                    for m in contact:
-                        if all([m.get(k) == v for k, v in matchDict.items()]):
-                            friendList.append(m)
+                    friendList = [
+                        m
+                        for m in contact
+                        if all(m.get(k) == v for k, v in matchDict.items())
+                    ]
                     return copy.deepcopy(friendList)
                 else:
                     return copy.deepcopy(contact)
     def __setstate__(self, state):
         super(Chatroom, self).__setstate__(state)
-        if not 'MemberList' in self:
+        if 'MemberList' not in self:
             self['MemberList'] = fakeContactList
 
 class ChatroomMember(AbstractUserDict):
@@ -270,35 +301,59 @@ class ChatroomMember(AbstractUserDict):
     def delete_member(self, userName):
         return self.core.delete_member_from_chatroom(self.chatroom.userName, self.userName)
     def send_raw_msg(self, msgType, content):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not send message directly' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not send message directly',
+                }
+            }
+        )
     def send_msg(self, msg='Test Message'):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not send message directly' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not send message directly',
+                }
+            }
+        )
     def send_file(self, fileDir, mediaId=None):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not send message directly' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not send message directly',
+                }
+            }
+        )
     def send_image(self, fileDir, mediaId=None):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not send message directly' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not send message directly',
+                }
+            }
+        )
     def send_video(self, fileDir=None, mediaId=None):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not send message directly' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not send message directly',
+                }
+            }
+        )
     def send(self, msg, mediaId=None):
-        return ReturnValue({'BaseResponse': {
-            'Ret': -1006,
-            'ErrMsg': '%s can not send message directly' % \
-                self.__class__.__name__, }, })
+        return ReturnValue(
+            {
+                'BaseResponse': {
+                    'Ret': -1006,
+                    'ErrMsg': f'{self.__class__.__name__} can not send message directly',
+                }
+            }
+        )
     def __setstate__(self, state):
         super(ChatroomMember, self).__setstate__(state)
         self['MemberList'] = fakeContactList
@@ -306,12 +361,11 @@ class ChatroomMember(AbstractUserDict):
 def wrap_user_dict(d):
     userName = d.get('UserName')
     if '@@' in userName:
-        r = Chatroom(d)
+        return Chatroom(d)
     elif d.get('VerifyFlag', 8) & 8 == 0:
-        r = User(d)
+        return User(d)
     else:
-        r = MassivePlatform(d)
-    return r
+        return MassivePlatform(d)
 
 fakeItchat = UnInitializedItchat()
 fakeContactList = ContactList()

@@ -37,7 +37,7 @@ class WechatComAppChannel(ChatChannel):
         self.aes_key = conf().get("wechatcomapp_aes_key")
         print(self.corp_id, self.secret, self.agent_id, self.token, self.aes_key)
         logger.info(
-            "[wechatcom] init: corp_id: {}, secret: {}, agent_id: {}, token: {}, aes_key: {}".format(self.corp_id, self.secret, self.agent_id, self.token, self.aes_key)
+            f"[wechatcom] init: corp_id: {self.corp_id}, secret: {self.secret}, agent_id: {self.agent_id}, token: {self.token}, aes_key: {self.aes_key}"
         )
         self.crypto = WeChatCrypto(self.token, self.aes_key, self.corp_id)
         self.client = WechatComAppClient(self.corp_id, self.secret)
@@ -55,27 +55,29 @@ class WechatComAppChannel(ChatChannel):
             reply_text = reply.content
             texts = split_string_by_utf8_length(reply_text, MAX_UTF8_LEN)
             if len(texts) > 1:
-                logger.info("[wechatcom] text too long, split into {} parts".format(len(texts)))
+                logger.info(f"[wechatcom] text too long, split into {len(texts)} parts")
             for i, text in enumerate(texts):
                 self.client.message.send_text(self.agent_id, receiver, text)
                 if i != len(texts) - 1:
                     time.sleep(0.5)  # 休眠0.5秒，防止发送过快乱序
-            logger.info("[wechatcom] Do send text to {}: {}".format(receiver, reply_text))
+            logger.info(f"[wechatcom] Do send text to {receiver}: {reply_text}")
         elif reply.type == ReplyType.VOICE:
             try:
                 media_ids = []
                 file_path = reply.content
-                amr_file = os.path.splitext(file_path)[0] + ".amr"
+                amr_file = f"{os.path.splitext(file_path)[0]}.amr"
                 any_to_amr(file_path, amr_file)
                 duration, files = split_audio(amr_file, 60 * 1000)
                 if len(files) > 1:
-                    logger.info("[wechatcom] voice too long {}s > 60s , split into {} parts".format(duration / 1000.0, len(files)))
+                    logger.info(
+                        f"[wechatcom] voice too long {duration / 1000.0}s > 60s , split into {len(files)} parts"
+                    )
                 for path in files:
                     response = self.client.media.upload("voice", open(path, "rb"))
-                    logger.debug("[wechatcom] upload voice response: {}".format(response))
+                    logger.debug(f"[wechatcom] upload voice response: {response}")
                     media_ids.append(response["media_id"])
             except WeChatClientException as e:
-                logger.error("[wechatcom] upload voice failed: {}".format(e))
+                logger.error(f"[wechatcom] upload voice failed: {e}")
                 return
             try:
                 os.remove(file_path)
@@ -86,7 +88,7 @@ class WechatComAppChannel(ChatChannel):
             for media_id in media_ids:
                 self.client.message.send_voice(self.agent_id, receiver, media_id)
                 time.sleep(1)
-            logger.info("[wechatcom] sendVoice={}, receiver={}".format(reply.content, receiver))
+            logger.info(f"[wechatcom] sendVoice={reply.content}, receiver={receiver}")
         elif reply.type == ReplyType.IMAGE_URL:  # 从网络下载图片
             img_url = reply.content
             pic_res = requests.get(img_url, stream=True)
@@ -95,42 +97,42 @@ class WechatComAppChannel(ChatChannel):
                 image_storage.write(block)
             sz = fsize(image_storage)
             if sz >= 10 * 1024 * 1024:
-                logger.info("[wechatcom] image too large, ready to compress, sz={}".format(sz))
+                logger.info(f"[wechatcom] image too large, ready to compress, sz={sz}")
                 image_storage = compress_imgfile(image_storage, 10 * 1024 * 1024 - 1)
-                logger.info("[wechatcom] image compressed, sz={}".format(fsize(image_storage)))
+                logger.info(f"[wechatcom] image compressed, sz={fsize(image_storage)}")
             image_storage.seek(0)
             try:
                 response = self.client.media.upload("image", image_storage)
-                logger.debug("[wechatcom] upload image response: {}".format(response))
+                logger.debug(f"[wechatcom] upload image response: {response}")
             except WeChatClientException as e:
-                logger.error("[wechatcom] upload image failed: {}".format(e))
+                logger.error(f"[wechatcom] upload image failed: {e}")
                 return
 
             self.client.message.send_image(self.agent_id, receiver, response["media_id"])
-            logger.info("[wechatcom] sendImage url={}, receiver={}".format(img_url, receiver))
+            logger.info(f"[wechatcom] sendImage url={img_url}, receiver={receiver}")
         elif reply.type == ReplyType.IMAGE:  # 从文件读取图片
             image_storage = reply.content
             sz = fsize(image_storage)
             if sz >= 10 * 1024 * 1024:
-                logger.info("[wechatcom] image too large, ready to compress, sz={}".format(sz))
+                logger.info(f"[wechatcom] image too large, ready to compress, sz={sz}")
                 image_storage = compress_imgfile(image_storage, 10 * 1024 * 1024 - 1)
-                logger.info("[wechatcom] image compressed, sz={}".format(fsize(image_storage)))
+                logger.info(f"[wechatcom] image compressed, sz={fsize(image_storage)}")
             image_storage.seek(0)
             try:
                 response = self.client.media.upload("image", image_storage)
-                logger.debug("[wechatcom] upload image response: {}".format(response))
+                logger.debug(f"[wechatcom] upload image response: {response}")
             except WeChatClientException as e:
-                logger.error("[wechatcom] upload image failed: {}".format(e))
+                logger.error(f"[wechatcom] upload image failed: {e}")
                 return
             self.client.message.send_image(self.agent_id, receiver, response["media_id"])
-            logger.info("[wechatcom] sendImage, receiver={}".format(receiver))
+            logger.info(f"[wechatcom] sendImage, receiver={receiver}")
 
 
 class Query:
     def GET(self):
         channel = WechatComAppChannel()
         params = web.input()
-        logger.info("[wechatcom] receive params: {}".format(params))
+        logger.info(f"[wechatcom] receive params: {params}")
         try:
             signature = params.msg_signature
             timestamp = params.timestamp
@@ -144,7 +146,7 @@ class Query:
     def POST(self):
         channel = WechatComAppChannel()
         params = web.input()
-        logger.info("[wechatcom] receive params: {}".format(params))
+        logger.info(f"[wechatcom] receive params: {params}")
         try:
             signature = params.msg_signature
             timestamp = params.timestamp
@@ -153,26 +155,23 @@ class Query:
         except (InvalidSignatureException, InvalidCorpIdException):
             raise web.Forbidden()
         msg = parse_message(message)
-        logger.debug("[wechatcom] receive message: {}, msg= {}".format(message, msg))
+        logger.debug(f"[wechatcom] receive message: {message}, msg= {msg}")
         if msg.type == "event":
-            if msg.event == "subscribe":
-                reply_content = subscribe_msg()
-                if reply_content:
+            if reply_content := subscribe_msg():
+                if msg.event == "subscribe":
                     reply = create_reply(reply_content, msg).render()
-                    res = channel.crypto.encrypt_message(reply, nonce, timestamp)
-                    return res
+                    return channel.crypto.encrypt_message(reply, nonce, timestamp)
         else:
             try:
                 wechatcom_msg = WechatComAppMessage(msg, client=channel.client)
             except NotImplementedError as e:
-                logger.debug("[wechatcom] " + str(e))
+                logger.debug(f"[wechatcom] {str(e)}")
                 return "success"
-            context = channel._compose_context(
+            if context := channel._compose_context(
                 wechatcom_msg.ctype,
                 wechatcom_msg.content,
                 isgroup=False,
                 msg=wechatcom_msg,
-            )
-            if context:
+            ):
                 channel.produce(context)
         return "success"

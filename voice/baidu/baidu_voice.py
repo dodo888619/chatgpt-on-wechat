@@ -56,23 +56,22 @@ class BaiduVoice(Voice):
 
             self.client = AipSpeech(self.app_id, self.api_key, self.secret_key)
         except Exception as e:
-            logger.warn("BaiduVoice init failed: %s, ignore " % e)
+            logger.warn(f"BaiduVoice init failed: {e}, ignore ")
 
     def voiceToText(self, voice_file):
         # 识别本地文件
-        logger.debug("[Baidu] voice file name={}".format(voice_file))
+        logger.debug(f"[Baidu] voice file name={voice_file}")
         pcm = get_pcm_from_wav(voice_file)
         res = self.client.asr(pcm, "pcm", 16000, {"dev_pid": self.dev_id})
         if res["err_no"] == 0:
-            logger.info("百度语音识别到了：{}".format(res["result"]))
+            logger.info(f'百度语音识别到了：{res["result"]}')
             text = "".join(res["result"])
-            reply = Reply(ReplyType.TEXT, text)
+            return Reply(ReplyType.TEXT, text)
         else:
-            logger.info("百度语音识别出错了: {}".format(res["err_msg"]))
+            logger.info(f'百度语音识别出错了: {res["err_msg"]}')
             if res["err_msg"] == "request pv too much":
                 logger.info("  出现这个原因很可能是你的百度语音服务调用量超出限制，或未开通付费")
-            reply = Reply(ReplyType.ERROR, "百度语音识别出错了；{0}".format(res["err_msg"]))
-        return reply
+            return Reply(ReplyType.ERROR, "百度语音识别出错了；{0}".format(res["err_msg"]))
 
     def textToVoice(self, text):
         result = self.client.synthesis(
@@ -83,12 +82,11 @@ class BaiduVoice(Voice):
         )
         if not isinstance(result, dict):
             # Avoid the same filename under multithreading
-            fileName = TmpDir().path() + "reply-" + str(int(time.time())) + "-" + str(hash(text) & 0x7FFFFFFF) + ".mp3"
+            fileName = f"{TmpDir().path()}reply-{int(time.time())}-{str(hash(text) & 2147483647)}.mp3"
             with open(fileName, "wb") as f:
                 f.write(result)
-            logger.info("[Baidu] textToVoice text={} voice file name={}".format(text, fileName))
-            reply = Reply(ReplyType.VOICE, fileName)
+            logger.info(f"[Baidu] textToVoice text={text} voice file name={fileName}")
+            return Reply(ReplyType.VOICE, fileName)
         else:
-            logger.error("[Baidu] textToVoice error={}".format(result))
-            reply = Reply(ReplyType.ERROR, "抱歉，语音合成失败")
-        return reply
+            logger.error(f"[Baidu] textToVoice error={result}")
+            return Reply(ReplyType.ERROR, "抱歉，语音合成失败")

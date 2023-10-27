@@ -30,7 +30,7 @@ def handler_single_msg(msg):
     try:
         cmsg = WechatMessage(msg, False)
     except NotImplementedError as e:
-        logger.debug("[WX]single message {} skipped: {}".format(msg["MsgId"], e))
+        logger.debug(f'[WX]single message {msg["MsgId"]} skipped: {e}')
         return None
     WechatChannel().handle_single(cmsg)
     return None
@@ -41,7 +41,7 @@ def handler_group_msg(msg):
     try:
         cmsg = WechatMessage(msg, True)
     except NotImplementedError as e:
-        logger.debug("[WX]group message {} skipped: {}".format(msg["MsgId"], e))
+        logger.debug(f'[WX]group message {msg["MsgId"]} skipped: {e}')
         return None
     WechatChannel().handle_group(cmsg)
     return None
@@ -71,35 +71,38 @@ def _check(func):
 # https://api.isoyu.com/qr/?m=1&e=L&p=20&url=https://www.abc.com
 def qrCallback(uuid, status, qrcode):
     # logger.debug("qrCallback: {} {}".format(uuid,status))
-    if status == "0":
-        try:
-            from PIL import Image
+    if status != "0":
+        return
+    try:
+        from PIL import Image
 
-            img = Image.open(io.BytesIO(qrcode))
-            _thread = threading.Thread(target=img.show, args=("QRCode",))
-            _thread.setDaemon(True)
-            _thread.start()
-        except Exception as e:
-            pass
+        img = Image.open(io.BytesIO(qrcode))
+        _thread = threading.Thread(target=img.show, args=("QRCode",))
+        _thread.setDaemon(True)
+        _thread.start()
+    except Exception as e:
+        pass
 
-        import qrcode
+    import qrcode
 
-        url = f"https://login.weixin.qq.com/l/{uuid}"
+    url = f"https://login.weixin.qq.com/l/{uuid}"
 
-        qr_api1 = "https://api.isoyu.com/qr/?m=1&e=L&p=20&url={}".format(url)
-        qr_api2 = "https://api.qrserver.com/v1/create-qr-code/?size=400×400&data={}".format(url)
-        qr_api3 = "https://api.pwmqr.com/qrcode/create/?url={}".format(url)
-        qr_api4 = "https://my.tv.sohu.com/user/a/wvideo/getQRCode.do?text={}".format(url)
-        print("You can also scan QRCode in any website below:")
-        print(qr_api3)
-        print(qr_api4)
-        print(qr_api2)
-        print(qr_api1)
+    qr_api1 = f"https://api.isoyu.com/qr/?m=1&e=L&p=20&url={url}"
+    qr_api2 = (
+        f"https://api.qrserver.com/v1/create-qr-code/?size=400×400&data={url}"
+    )
+    qr_api3 = f"https://api.pwmqr.com/qrcode/create/?url={url}"
+    qr_api4 = f"https://my.tv.sohu.com/user/a/wvideo/getQRCode.do?text={url}"
+    print("You can also scan QRCode in any website below:")
+    print(qr_api3)
+    print(qr_api4)
+    print(qr_api2)
+    print(qr_api1)
 
-        qr = qrcode.QRCode(border=1)
-        qr.add_data(url)
-        qr.make(fit=True)
-        qr.print_ascii(invert=True)
+    qr = qrcode.QRCode(border=1)
+    qr.add_data(url)
+    qr.make(fit=True)
+    qr.print_ascii(invert=True)
 
 
 @singleton
@@ -123,7 +126,9 @@ class WechatChannel(ChatChannel):
         )
         self.user_id = itchat.instance.storageClass.userName
         self.name = itchat.instance.storageClass.nickName
-        logger.info("Wechat login success, user_id: {}, nickname: {}".format(self.user_id, self.name))
+        logger.info(
+            f"Wechat login success, user_id: {self.user_id}, nickname: {self.name}"
+        )
         # start message listener
         itchat.run()
 
@@ -145,17 +150,18 @@ class WechatChannel(ChatChannel):
         if cmsg.ctype == ContextType.VOICE:
             if conf().get("speech_recognition") != True:
                 return
-            logger.debug("[WX]receive voice msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive voice msg: {cmsg.content}")
         elif cmsg.ctype == ContextType.IMAGE:
-            logger.debug("[WX]receive image msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive image msg: {cmsg.content}")
         elif cmsg.ctype == ContextType.PATPAT:
-            logger.debug("[WX]receive patpat msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive patpat msg: {cmsg.content}")
         elif cmsg.ctype == ContextType.TEXT:
             logger.debug("[WX]receive text msg: {}, cmsg={}".format(json.dumps(cmsg._rawmsg, ensure_ascii=False), cmsg))
         else:
-            logger.debug("[WX]receive msg: {}, cmsg={}".format(cmsg.content, cmsg))
-        context = self._compose_context(cmsg.ctype, cmsg.content, isgroup=False, msg=cmsg)
-        if context:
+            logger.debug(f"[WX]receive msg: {cmsg.content}, cmsg={cmsg}")
+        if context := self._compose_context(
+            cmsg.ctype, cmsg.content, isgroup=False, msg=cmsg
+        ):
             self.produce(context)
 
     @time_checker
@@ -164,18 +170,16 @@ class WechatChannel(ChatChannel):
         if cmsg.ctype == ContextType.VOICE:
             if conf().get("group_speech_recognition") != True:
                 return
-            logger.debug("[WX]receive voice for group msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive voice for group msg: {cmsg.content}")
         elif cmsg.ctype == ContextType.IMAGE:
-            logger.debug("[WX]receive image for group msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive image for group msg: {cmsg.content}")
         elif cmsg.ctype in [ContextType.JOIN_GROUP, ContextType.PATPAT]:
-            logger.debug("[WX]receive note msg: {}".format(cmsg.content))
-        elif cmsg.ctype == ContextType.TEXT:
-            # logger.debug("[WX]receive group msg: {}, cmsg={}".format(json.dumps(cmsg._rawmsg, ensure_ascii=False), cmsg))
-            pass
-        else:
-            logger.debug("[WX]receive group msg: {}".format(cmsg.content))
-        context = self._compose_context(cmsg.ctype, cmsg.content, isgroup=True, msg=cmsg)
-        if context:
+            logger.debug(f"[WX]receive note msg: {cmsg.content}")
+        elif cmsg.ctype != ContextType.TEXT:
+            logger.debug(f"[WX]receive group msg: {cmsg.content}")
+        if context := self._compose_context(
+            cmsg.ctype, cmsg.content, isgroup=True, msg=cmsg
+        ):
             self.produce(context)
 
     # 统一的发送函数，每个Channel自行实现，根据reply的type字段发送不同类型的消息
@@ -183,13 +187,13 @@ class WechatChannel(ChatChannel):
         receiver = context["receiver"]
         if reply.type == ReplyType.TEXT:
             itchat.send(reply.content, toUserName=receiver)
-            logger.info("[WX] sendMsg={}, receiver={}".format(reply, receiver))
-        elif reply.type == ReplyType.ERROR or reply.type == ReplyType.INFO:
+            logger.info(f"[WX] sendMsg={reply}, receiver={receiver}")
+        elif reply.type in [ReplyType.ERROR, ReplyType.INFO]:
             itchat.send(reply.content, toUserName=receiver)
-            logger.info("[WX] sendMsg={}, receiver={}".format(reply, receiver))
+            logger.info(f"[WX] sendMsg={reply}, receiver={receiver}")
         elif reply.type == ReplyType.VOICE:
             itchat.send_file(reply.content, toUserName=receiver)
-            logger.info("[WX] sendFile={}, receiver={}".format(reply.content, receiver))
+            logger.info(f"[WX] sendFile={reply.content}, receiver={receiver}")
         elif reply.type == ReplyType.IMAGE_URL:  # 从网络下载图片
             img_url = reply.content
             logger.debug(f"[WX] start download image, img_url={img_url}")
@@ -202,9 +206,9 @@ class WechatChannel(ChatChannel):
             logger.info(f"[WX] download image success, size={size}, img_url={img_url}")
             image_storage.seek(0)
             itchat.send_image(image_storage, toUserName=receiver)
-            logger.info("[WX] sendImage url={}, receiver={}".format(img_url, receiver))
+            logger.info(f"[WX] sendImage url={img_url}, receiver={receiver}")
         elif reply.type == ReplyType.IMAGE:  # 从文件读取图片
             image_storage = reply.content
             image_storage.seek(0)
             itchat.send_image(image_storage, toUserName=receiver)
-            logger.info("[WX] sendImage, receiver={}".format(receiver))
+            logger.info(f"[WX] sendImage, receiver={receiver}")

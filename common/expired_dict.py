@@ -10,7 +10,7 @@ class ExpiredDict(dict):
         value, expiry_time = super().__getitem__(key)
         if datetime.now() > expiry_time:
             del self[key]
-            raise KeyError("expired {}".format(key))
+            raise KeyError(f"expired {key}")
         self.__setitem__(key, value)
         return value
 

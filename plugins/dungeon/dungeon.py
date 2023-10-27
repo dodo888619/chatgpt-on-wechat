@@ -26,7 +26,7 @@ class StoryTeller:
 
     def action(self, user_action):
         if user_action[-1] != "。":
-            user_action = user_action + "。"
+            user_action = f"{user_action}。"
         if self.first_interact:
             prompt = (
                 """现在来充当一个文字冒险游戏，描述时候注意节奏，不要太快，仔细描述各个人物的心情和周边环境。一次只需写四到六句话。
@@ -37,7 +37,7 @@ class StoryTeller:
             )
             self.first_interact = False
         else:
-            prompt = """继续，一次只需要续写四到六句话，总共就只讲5分钟内发生的事情。""" + user_action
+            prompt = f"""继续，一次只需要续写四到六句话，总共就只讲5分钟内发生的事情。{user_action}"""
         return prompt
 
 
@@ -70,7 +70,7 @@ class Dungeon(Plugin):
         content = e_context["context"].content[:]
         clist = e_context["context"].content.split(maxsplit=1)
         sessionid = e_context["context"]["session_id"]
-        logger.debug("[Dungeon] on_handle_context. content: %s" % clist)
+        logger.debug(f"[Dungeon] on_handle_context. content: {clist}")
         trigger_prefix = conf().get("plugin_trigger_prefix", "$")
         if clist[0] == f"{trigger_prefix}停止冒险":
             if sessionid in self.games:
@@ -86,7 +86,7 @@ class Dungeon(Plugin):
                 else:
                     story = "你在树林里冒险，指不定会从哪里蹦出来一些奇怪的东西，你握紧手上的手枪，希望这次冒险能够找到一些值钱的东西，你往树林深处走去。"
                 self.games[sessionid] = StoryTeller(bot, sessionid, story)
-                reply = Reply(ReplyType.INFO, "冒险开始，你可以输入任意内容，让故事继续下去。故事背景是：" + story)
+                reply = Reply(ReplyType.INFO, f"冒险开始，你可以输入任意内容，让故事继续下去。故事背景是：{story}")
                 e_context["reply"] = reply
                 e_context.action = EventAction.BREAK_PASS  # 事件结束，并跳过处理context的默认逻辑
             else:

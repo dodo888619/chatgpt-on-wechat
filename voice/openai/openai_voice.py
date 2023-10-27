@@ -16,13 +16,13 @@ class OpenaiVoice(Voice):
         openai.api_key = conf().get("open_ai_api_key")
 
     def voiceToText(self, voice_file):
-        logger.debug("[Openai] voice file name={}".format(voice_file))
+        logger.debug(f"[Openai] voice file name={voice_file}")
         try:
             file = open(voice_file, "rb")
             result = openai.Audio.transcribe("whisper-1", file)
             text = result["text"]
             reply = Reply(ReplyType.TEXT, text)
-            logger.info("[Openai] voiceToText text={} voice file name={}".format(text, voice_file))
+            logger.info(f"[Openai] voiceToText text={text} voice file name={voice_file}")
         except Exception as e:
             reply = Reply(ReplyType.ERROR, str(e))
         finally:

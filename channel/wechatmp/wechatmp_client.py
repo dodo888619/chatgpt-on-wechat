@@ -23,8 +23,7 @@ class WechatMPClient(WeChatClient):
 
     def fetch_access_token(self):  # 重载父类方法，加锁避免多线程重复获取access_token
         with self.fetch_access_token_lock:
-            access_token = self.session.get(self.access_token_key)
-            if access_token:
+            if access_token := self.session.get(self.access_token_key):
                 if not self.expires_at:
                     return access_token
                 timestamp = time.time()
@@ -36,13 +35,13 @@ class WechatMPClient(WeChatClient):
         try:
             return super()._request(method, url_or_endpoint, **kwargs)
         except APILimitedException as e:
-            logger.error("[wechatmp] API quata has been used up. {}".format(e))
+            logger.error(f"[wechatmp] API quata has been used up. {e}")
             if self.last_clear_quota_time == -1 or time.time() - self.last_clear_quota_time > 60:
                 with self.clear_quota_lock:
                     if self.last_clear_quota_time == -1 or time.time() - self.last_clear_quota_time > 60:
                         self.last_clear_quota_time = time.time()
                         response = self.clear_quota_v2()
-                        logger.debug("[wechatmp] API quata has been cleard, {}".format(response))
+                        logger.debug(f"[wechatmp] API quata has been cleard, {response}")
                 return super()._request(method, url_or_endpoint, **kwargs)
             else:
                 logger.error("[wechatmp] last clear quota time is {}, less than 60s, skip clear quota")

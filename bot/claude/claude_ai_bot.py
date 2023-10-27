@@ -33,22 +33,16 @@ class ClaudeAIBot(Bot, OpenAIImage):
     def generate_uuid(self):
         random_uuid = uuid.uuid4()
         random_uuid_str = str(random_uuid)
-        formatted_uuid = f"{random_uuid_str[0:8]}-{random_uuid_str[9:13]}-{random_uuid_str[14:18]}-{random_uuid_str[19:23]}-{random_uuid_str[24:]}"
-        return formatted_uuid
+        return f"{random_uuid_str[:8]}-{random_uuid_str[9:13]}-{random_uuid_str[14:18]}-{random_uuid_str[19:23]}-{random_uuid_str[24:]}"
         
     def reply(self, query, context: Context = None) -> Reply:
         if context.type == ContextType.TEXT:
             return self._chat(query, context)
         elif context.type == ContextType.IMAGE_CREATE:
             ok, res = self.create_img(query, 0)
-            if ok:
-                reply = Reply(ReplyType.IMAGE_URL, res)
-            else:
-                reply = Reply(ReplyType.ERROR, res)
-            return reply
+            return Reply(ReplyType.IMAGE_URL, res) if ok else Reply(ReplyType.ERROR, res)
         else:
-            reply = Reply(ReplyType.ERROR, "Bot不支持处理{}类型的消息".format(context.type))
-            return reply
+            return Reply(ReplyType.ERROR, f"Bot不支持处理{context.type}类型的消息")
 
     def get_organization_id(self):
         url = "https://claude.ai/api/organizations"
@@ -80,16 +74,14 @@ class ClaudeAIBot(Bot, OpenAIImage):
 
     def conversation_share_check(self,session_id):
         if conf().get("claude_uuid") is not None and conf().get("claude_uuid") != "":
-            con_uuid = conf().get("claude_uuid")
-            return con_uuid
+            return conf().get("claude_uuid")
         if session_id not in self.con_uuid_dic:
             self.con_uuid_dic[session_id] = self.generate_uuid()
             self.create_new_chat(self.con_uuid_dic[session_id])
         return self.con_uuid_dic[session_id]
 
     def check_cookie(self):
-        flag = self.get_organization_id()
-        return flag
+        return self.get_organization_id()
 
     def create_new_chat(self, con_uuid):
         """
@@ -142,7 +134,7 @@ class ClaudeAIBot(Bot, OpenAIImage):
             model = conf().get("model") or "gpt-3.5-turbo"
             # remove system message
             if session.messages[0].get("role") == "system":
-                if model == "wenxin" or model == "claude":
+                if model in ["wenxin", "claude"]:
                     session.messages.pop(0)
             logger.info(f"[CLAUDEAI] query={query}")
 
@@ -176,7 +168,14 @@ class ClaudeAIBot(Bot, OpenAIImage):
                 'TE': 'trailers'
             }
 
-            res = requests.post(base_url + "/api/append_message", headers=headers, data=payload,impersonate="chrome110",proxies= self.proxies,timeout=400)
+            res = requests.post(
+                f"{base_url}/api/append_message",
+                headers=headers,
+                data=payload,
+                impersonate="chrome110",
+                proxies=self.proxies,
+                timeout=400,
+            )
             if res.status_code == 200 or "pemission" in res.text:
                 # execute success
                 decoded_data = res.content.decode("utf-8")
@@ -199,7 +198,7 @@ class ClaudeAIBot(Bot, OpenAIImage):
                 return Reply(ReplyType.TEXT, reply_content)
             else:
                 flag = self.check_cookie()
-                if flag == None:
+                if flag is None:
                     return Reply(ReplyType.ERROR, self.error)
 
                 response = res.json()

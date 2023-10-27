@@ -53,7 +53,7 @@ class WechatyChannel(ChatChannel):
     async def on_login(self, contact: Contact):
         self.user_id = contact.contact_id
         self.name = contact.name
-        logger.info("[WX] login user={}".format(contact))
+        logger.info(f"[WX] login user={contact}")
 
     # 统一的发送函数，每个Channel自行实现，根据reply的type字段发送不同类型的消息
     def send(self, reply: Reply, context: Context):
@@ -67,22 +67,22 @@ class WechatyChannel(ChatChannel):
         if reply.type == ReplyType.TEXT:
             msg = reply.content
             asyncio.run_coroutine_threadsafe(receiver.say(msg), loop).result()
-            logger.info("[WX] sendMsg={}, receiver={}".format(reply, receiver))
-        elif reply.type == ReplyType.ERROR or reply.type == ReplyType.INFO:
+            logger.info(f"[WX] sendMsg={reply}, receiver={receiver}")
+        elif reply.type in [ReplyType.ERROR, ReplyType.INFO]:
             msg = reply.content
             asyncio.run_coroutine_threadsafe(receiver.say(msg), loop).result()
-            logger.info("[WX] sendMsg={}, receiver={}".format(reply, receiver))
+            logger.info(f"[WX] sendMsg={reply}, receiver={receiver}")
         elif reply.type == ReplyType.VOICE:
             voiceLength = None
             file_path = reply.content
-            sil_file = os.path.splitext(file_path)[0] + ".sil"
+            sil_file = f"{os.path.splitext(file_path)[0]}.sil"
             voiceLength = int(any_to_sil(file_path, sil_file))
             if voiceLength >= 60000:
                 voiceLength = 60000
-                logger.info("[WX] voice too long, length={}, set to 60s".format(voiceLength))
+                logger.info(f"[WX] voice too long, length={voiceLength}, set to 60s")
             # 发送语音
             t = int(time.time())
-            msg = FileBox.from_file(sil_file, name=str(t) + ".sil")
+            msg = FileBox.from_file(sil_file, name=f"{t}.sil")
             if voiceLength is not None:
                 msg.metadata["voiceLength"] = voiceLength
             asyncio.run_coroutine_threadsafe(receiver.say(msg), loop).result()
@@ -92,20 +92,20 @@ class WechatyChannel(ChatChannel):
                     os.remove(sil_file)
             except Exception as e:
                 pass
-            logger.info("[WX] sendVoice={}, receiver={}".format(reply.content, receiver))
+            logger.info(f"[WX] sendVoice={reply.content}, receiver={receiver}")
         elif reply.type == ReplyType.IMAGE_URL:  # 从网络下载图片
             img_url = reply.content
             t = int(time.time())
-            msg = FileBox.from_url(url=img_url, name=str(t) + ".png")
+            msg = FileBox.from_url(url=img_url, name=f"{t}.png")
             asyncio.run_coroutine_threadsafe(receiver.say(msg), loop).result()
-            logger.info("[WX] sendImage url={}, receiver={}".format(img_url, receiver))
+            logger.info(f"[WX] sendImage url={img_url}, receiver={receiver}")
         elif reply.type == ReplyType.IMAGE:  # 从文件读取图片
             image_storage = reply.content
             image_storage.seek(0)
             t = int(time.time())
-            msg = FileBox.from_base64(base64.b64encode(image_storage.read()), str(t) + ".png")
+            msg = FileBox.from_base64(base64.b64encode(image_storage.read()), f"{t}.png")
             asyncio.run_coroutine_threadsafe(receiver.say(msg), loop).result()
-            logger.info("[WX] sendImage, receiver={}".format(receiver))
+            logger.info(f"[WX] sendImage, receiver={receiver}")
 
     async def on_message(self, msg: Message):
         """
@@ -114,16 +114,17 @@ class WechatyChannel(ChatChannel):
         try:
             cmsg = await WechatyMessage(msg)
         except NotImplementedError as e:
-            logger.debug("[WX] {}".format(e))
+            logger.debug(f"[WX] {e}")
             return
         except Exception as e:
-            logger.exception("[WX] {}".format(e))
+            logger.exception(f"[WX] {e}")
             return
-        logger.debug("[WX] message:{}".format(cmsg))
+        logger.debug(f"[WX] message:{cmsg}")
         room = msg.room()  # 获取消息来自的群聊. 如果消息不是来自群聊, 则返回None
         isgroup = room is not None
         ctype = cmsg.ctype
-        context = self._compose_context(ctype, cmsg.content, isgroup=isgroup, msg=cmsg)
-        if context:
-            logger.info("[WX] receiveMsg={}, context={}".format(cmsg, context))
+        if context := self._compose_context(
+            ctype, cmsg.content, isgroup=isgroup, msg=cmsg
+        ):
+            logger.info(f"[WX] receiveMsg={cmsg}, context={context}")
             self.produce(context)

@@ -35,9 +35,9 @@ class PyttsVoice(Voice):
     def textToVoice(self, text):
         try:
             # Avoid the same filename under multithreading
-            wavFileName = "reply-" + str(int(time.time())) + "-" + str(hash(text) & 0x7FFFFFFF) + ".wav"
+            wavFileName = f"reply-{int(time.time())}-{str(hash(text) & 2147483647)}.wav"
             wavFile = TmpDir().path() + wavFileName
-            logger.info("[Pytts] textToVoice text={} voice file name={}".format(text, wavFile))
+            logger.info(f"[Pytts] textToVoice text={text} voice file name={wavFile}")
 
             self.engine.save_to_file(text, wavFile)
 

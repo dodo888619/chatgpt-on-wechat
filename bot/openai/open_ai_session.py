@@ -36,27 +36,23 @@ class OpenAISession(Session):
             precise = False
             if cur_tokens is None:
                 raise e
-            logger.debug("Exception when counting tokens precisely for query: {}".format(e))
+            logger.debug(f"Exception when counting tokens precisely for query: {e}")
         while cur_tokens > max_tokens:
             if len(self.messages) > 1:
                 self.messages.pop(0)
             elif len(self.messages) == 1 and self.messages[0]["role"] == "assistant":
                 self.messages.pop(0)
-                if precise:
-                    cur_tokens = self.calc_tokens()
-                else:
-                    cur_tokens = len(str(self))
+                cur_tokens = self.calc_tokens() if precise else len(str(self))
                 break
             elif len(self.messages) == 1 and self.messages[0]["role"] == "user":
-                logger.warn("user question exceed max_tokens. total_tokens={}".format(cur_tokens))
+                logger.warn(f"user question exceed max_tokens. total_tokens={cur_tokens}")
                 break
             else:
-                logger.debug("max_tokens={}, total_tokens={}, len(conversation)={}".format(max_tokens, cur_tokens, len(self.messages)))
+                logger.debug(
+                    f"max_tokens={max_tokens}, total_tokens={cur_tokens}, len(conversation)={len(self.messages)}"
+                )
                 break
-            if precise:
-                cur_tokens = self.calc_tokens()
-            else:
-                cur_tokens = len(str(self))
+            cur_tokens = self.calc_tokens() if precise else len(str(self))
         return cur_tokens
 
     def calc_tokens(self):
@@ -69,5 +65,4 @@ def num_tokens_from_string(string: str, model: str) -> int:
     import tiktoken
 
     encoding = tiktoken.encoding_for_model(model)
-    num_tokens = len(encoding.encode(string, disallowed_special=()))
-    return num_tokens
+    return len(encoding.encode(string, disallowed_special=()))

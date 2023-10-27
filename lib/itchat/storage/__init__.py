@@ -77,17 +77,22 @@ class Storage(object):
                     if matchDict[k] is None:
                         del matchDict[k]
                 if name: # select based on name
-                    contact = []
-                    for m in self.memberList:
-                        if any([m.get(k) == name for k in ('RemarkName', 'NickName', 'Alias')]):
-                            contact.append(m)
+                    contact = [
+                        m
+                        for m in self.memberList
+                        if any(
+                            m.get(k) == name
+                            for k in ('RemarkName', 'NickName', 'Alias')
+                        )
+                    ]
                 else:
                     contact = self.memberList[:]
                 if matchDict: # select again based on matchDict
-                    friendList = []
-                    for m in contact:
-                        if all([m.get(k) == v for k, v in matchDict.items()]):
-                            friendList.append(m)
+                    friendList = [
+                        m
+                        for m in contact
+                        if all(m.get(k) == v for k, v in matchDict.items())
+                    ]
                     return copy.deepcopy(friendList)
                 else:
                     return copy.deepcopy(contact)
@@ -98,11 +103,7 @@ class Storage(object):
                     if m['UserName'] == userName:
                         return copy.deepcopy(m)
             elif name is not None:
-                matchList = []
-                for m in self.chatroomList:
-                    if name in m['NickName']:
-                        matchList.append(copy.deepcopy(m))
-                return matchList
+                return [copy.deepcopy(m) for m in self.chatroomList if name in m['NickName']]
     def search_mps(self, name=None, userName=None):
         with self.updateLock:
             if userName is not None:
@@ -110,8 +111,4 @@ class Storage(object):
                     if m['UserName'] == userName:
                         return copy.deepcopy(m)
             elif name is not None:
-                matchList = []
-                for m in self.mpList:
-                    if name in m['NickName']:
-                        matchList.append(copy.deepcopy(m))
-                return matchList
+                return [copy.deepcopy(m) for m in self.mpList if name in m['NickName']]

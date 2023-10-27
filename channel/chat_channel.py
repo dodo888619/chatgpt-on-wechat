@@ -57,24 +57,23 @@ class ChatChannel(Channel):
 
                 group_name_white_list = config.get("group_name_white_list", [])
                 group_name_keyword_white_list = config.get("group_name_keyword_white_list", [])
-                if any(
+                if not any(
                     [
                         group_name in group_name_white_list,
                         "ALL_GROUP" in group_name_white_list,
                         check_contain(group_name, group_name_keyword_white_list),
                     ]
                 ):
-                    group_chat_in_one_session = conf().get("group_chat_in_one_session", [])
-                    session_id = cmsg.actual_user_id
-                    if any(
-                        [
-                            group_name in group_chat_in_one_session,
-                            "ALL_GROUP" in group_chat_in_one_session,
-                        ]
-                    ):
-                        session_id = group_id
-                else:
                     return None
+                group_chat_in_one_session = conf().get("group_chat_in_one_session", [])
+                session_id = cmsg.actual_user_id
+                if any(
+                    [
+                        group_name in group_chat_in_one_session,
+                        "ALL_GROUP" in group_chat_in_one_session,
+                    ]
+                ):
+                    session_id = group_id
                 context["session_id"] = session_id
                 context["receiver"] = group_id
             else:
@@ -127,13 +126,12 @@ class ChatChannel(Channel):
                 match_prefix = check_prefix(content, conf().get("single_chat_prefix", [""]))
                 if match_prefix is not None:  # 判断如果匹配到自定义前缀，则返回过滤掉前缀+空格后的内容
                     content = content.replace(match_prefix, "", 1).strip()
-                elif context["origin_ctype"] == ContextType.VOICE:  # 如果源消息是私聊的语音消息，允许不匹配前缀，放宽条件
-                    pass
-                else:
+                elif context["origin_ctype"] != ContextType.VOICE:
                     return None
             content = content.strip()
-            img_match_prefix = check_prefix(content, conf().get("image_create_prefix"))
-            if img_match_prefix:
+            if img_match_prefix := check_prefix(
+                content, conf().get("image_create_prefix")
+            ):
                 content = content.replace(img_match_prefix, "", 1)
                 context.type = ContextType.IMAGE_CREATE
             else:
@@ -150,11 +148,11 @@ class ChatChannel(Channel):
     def _handle(self, context: Context):
         if context is None or not context.content:
             return
-        logger.debug("[WX] ready to handle context: {}".format(context))
+        logger.debug(f"[WX] ready to handle context: {context}")
         # reply的构建步骤
         reply = self._generate_reply(context)
 
-        logger.debug("[WX] ready to decorate reply: {}".format(reply))
+        logger.debug(f"[WX] ready to decorate reply: {reply}")
         # reply的包装步骤
         reply = self._decorate_reply(context, reply)
 
@@ -170,20 +168,22 @@ class ChatChannel(Channel):
         )
         reply = e_context["reply"]
         if not e_context.is_pass():
-            logger.debug("[WX] ready to handle context: type={}, content={}".format(context.type, context.content))
+            logger.debug(
+                f"[WX] ready to handle context: type={context.type}, content={context.content}"
+            )
             if e_context.is_break():
                 context["generate_breaked_by"] = e_context["breaked_by"]
-            if context.type == ContextType.TEXT or context.type == ContextType.IMAGE_CREATE:  # 文字和图片消息
+            if context.type in [ContextType.TEXT, ContextType.IMAGE_CREATE]:  # 文字和图片消息
                 reply = super().build_reply_content(context.content, context)
             elif context.type == ContextType.VOICE:  # 语音消息
                 cmsg = context["msg"]
                 cmsg.prepare()
                 file_path = context.content
-                wav_path = os.path.splitext(file_path)[0] + ".wav"
+                wav_path = f"{os.path.splitext(file_path)[0]}.wav"
                 try:
                     any_to_wav(file_path, wav_path)
                 except Exception as e:  # 转换失败，直接使用mp3，对于某些api，mp3也可以识别
-                    logger.warning("[WX]any to wav error, use raw path. " + str(e))
+                    logger.warning(f"[WX]any to wav error, use raw path. {str(e)}")
                     wav_path = file_path
                 # 语音识别
                 reply = super().build_voice_to_text(wav_path)
@@ -197,56 +197,63 @@ class ChatChannel(Channel):
                     # logger.warning("[WX]delete temp file error: " + str(e))
 
                 if reply.type == ReplyType.TEXT:
-                    new_context = self._compose_context(ContextType.TEXT, reply.content, **context.kwargs)
-                    if new_context:
+                    if new_context := self._compose_context(
+                        ContextType.TEXT, reply.content, **context.kwargs
+                    ):
                         reply = self._generate_reply(new_context)
                     else:
                         return
-            elif context.type == ContextType.IMAGE or context.type == ContextType.FUNCTION \
-                    or context.type == ContextType.FILE:  # 图片/文件消息及函数调用等，当前无默认逻辑
-                pass
-            else:
-                logger.error("[WX] unknown context type: {}".format(context.type))
+            elif context.type not in [
+                ContextType.IMAGE,
+                ContextType.FUNCTION,
+                ContextType.FILE,
+            ]:
+                logger.error(f"[WX] unknown context type: {context.type}")
                 return
         return reply
 
     def _decorate_reply(self, context: Context, reply: Reply) -> Reply:
-        if reply and reply.type:
-            e_context = PluginManager().emit_event(
-                EventContext(
-                    Event.ON_DECORATE_REPLY,
-                    {"channel": self, "context": context, "reply": reply},
-                )
+        if not reply or not reply.type:
+            return
+        e_context = PluginManager().emit_event(
+            EventContext(
+                Event.ON_DECORATE_REPLY,
+                {"channel": self, "context": context, "reply": reply},
             )
-            reply = e_context["reply"]
-            desire_rtype = context.get("desire_rtype")
-            if not e_context.is_pass() and reply and reply.type:
-                if reply.type in self.NOT_SUPPORT_REPLYTYPE:
-                    logger.error("[WX]reply type not support: " + str(reply.type))
-                    reply.type = ReplyType.ERROR
-                    reply.content = "不支持发送的消息类型: " + str(reply.type)
+        )
+        reply = e_context["reply"]
+        desire_rtype = context.get("desire_rtype")
+        if not e_context.is_pass() and reply and reply.type:
+            if reply.type in self.NOT_SUPPORT_REPLYTYPE:
+                logger.error(f"[WX]reply type not support: {str(reply.type)}")
+                reply.type = ReplyType.ERROR
+                reply.content = f"不支持发送的消息类型: {str(reply.type)}"
 
-                if reply.type == ReplyType.TEXT:
-                    reply_text = reply.content
-                    if desire_rtype == ReplyType.VOICE and ReplyType.VOICE not in self.NOT_SUPPORT_REPLYTYPE:
-                        reply = super().build_text_to_voice(reply.content)
-                        return self._decorate_reply(context, reply)
-                    if context.get("isgroup", False):
-                        reply_text = "@" + context["msg"].actual_user_nickname + "\n" + reply_text.strip()
-                        reply_text = conf().get("group_chat_reply_prefix", "") + reply_text + conf().get("group_chat_reply_suffix", "")
-                    else:
-                        reply_text = conf().get("single_chat_reply_prefix", "") + reply_text + conf().get("single_chat_reply_suffix", "")
-                    reply.content = reply_text
-                elif reply.type == ReplyType.ERROR or reply.type == ReplyType.INFO:
-                    reply.content = "[" + str(reply.type) + "]\n" + reply.content
-                elif reply.type == ReplyType.IMAGE_URL or reply.type == ReplyType.VOICE or reply.type == ReplyType.IMAGE:
-                    pass
+            if reply.type == ReplyType.TEXT:
+                reply_text = reply.content
+                if desire_rtype == ReplyType.VOICE and ReplyType.VOICE not in self.NOT_SUPPORT_REPLYTYPE:
+                    reply = super().build_text_to_voice(reply.content)
+                    return self._decorate_reply(context, reply)
+                if context.get("isgroup", False):
+                    reply_text = "@" + context["msg"].actual_user_nickname + "\n" + reply_text.strip()
+                    reply_text = conf().get("group_chat_reply_prefix", "") + reply_text + conf().get("group_chat_reply_suffix", "")
                 else:
-                    logger.error("[WX] unknown reply type: {}".format(reply.type))
-                    return
-            if desire_rtype and desire_rtype != reply.type and reply.type not in [ReplyType.ERROR, ReplyType.INFO]:
-                logger.warning("[WX] desire_rtype: {}, but reply type: {}".format(context.get("desire_rtype"), reply.type))
-            return reply
+                    reply_text = conf().get("single_chat_reply_prefix", "") + reply_text + conf().get("single_chat_reply_suffix", "")
+                reply.content = reply_text
+            elif reply.type in [ReplyType.ERROR, ReplyType.INFO]:
+                reply.content = f"[{str(reply.type)}" + "]\n" + reply.content
+            elif reply.type not in [
+                ReplyType.IMAGE_URL,
+                ReplyType.VOICE,
+                ReplyType.IMAGE,
+            ]:
+                logger.error(f"[WX] unknown reply type: {reply.type}")
+                return
+        if desire_rtype and desire_rtype != reply.type and reply.type not in [ReplyType.ERROR, ReplyType.INFO]:
+            logger.warning(
+                f'[WX] desire_rtype: {context.get("desire_rtype")}, but reply type: {reply.type}'
+            )
+        return reply
 
     def _send_reply(self, context: Context, reply: Reply):
         if reply and reply.type:
@@ -257,15 +264,15 @@ class ChatChannel(Channel):
                 )
             )
             reply = e_context["reply"]
-            if not e_context.is_pass() and reply and reply.type:
-                logger.debug("[WX] ready to send reply: {}, context: {}".format(reply, context))
-                self._send(reply, context)
+        if not e_context.is_pass() and reply and reply.type:
+            logger.debug(f"[WX] ready to send reply: {reply}, context: {context}")
+            self._send(reply, context)
 
     def _send(self, reply: Reply, context: Context, retry_cnt=0):
         try:
             self.send(reply, context)
         except Exception as e:
-            logger.error("[WX] sendMsg error: {}".format(str(e)))
+            logger.error(f"[WX] sendMsg error: {str(e)}")
             if isinstance(e, NotImplementedError):
                 return
             logger.exception(e)
@@ -274,10 +281,10 @@ class ChatChannel(Channel):
                 self._send(reply, context, retry_cnt + 1)
 
     def _success_callback(self, session_id, **kwargs):  # 线程正常结束时的回调函数
-        logger.debug("Worker return success, session_id = {}".format(session_id))
+        logger.debug(f"Worker return success, session_id = {session_id}")
 
     def _fail_callback(self, session_id, exception, **kwargs):  # 线程异常结束时的回调函数
-        logger.exception("Worker return exception: {}".format(exception))
+        logger.exception(f"Worker return exception: {exception}")
 
     def _thread_pool_callback(self, session_id, **kwargs):
         def func(worker: Future):
@@ -319,7 +326,7 @@ class ChatChannel(Channel):
                     if semaphore.acquire(blocking=False):  # 等线程处理完毕才能删除
                         if not context_queue.empty():
                             context = context_queue.get()
-                            logger.debug("[WX] consume context: {}".format(context))
+                            logger.debug(f"[WX] consume context: {context}")
                             future: Future = self.handler_pool.submit(self._handle, context)
                             future.add_done_callback(self._thread_pool_callback(session_id, context=context))
                             if session_id not in self.futures:
@@ -341,7 +348,7 @@ class ChatChannel(Channel):
                     future.cancel()
                 cnt = self.sessions[session_id][0].qsize()
                 if cnt > 0:
-                    logger.info("Cancel {} messages in session {}".format(cnt, session_id))
+                    logger.info(f"Cancel {cnt} messages in session {session_id}")
                 self.sessions[session_id][0] = Dequeue()
 
     def cancel_all_session(self):
@@ -351,23 +358,19 @@ class ChatChannel(Channel):
                     future.cancel()
                 cnt = self.sessions[session_id][0].qsize()
                 if cnt > 0:
-                    logger.info("Cancel {} messages in session {}".format(cnt, session_id))
+                    logger.info(f"Cancel {cnt} messages in session {session_id}")
                 self.sessions[session_id][0] = Dequeue()
 
 
 def check_prefix(content, prefix_list):
     if not prefix_list:
         return None
-    for prefix in prefix_list:
-        if content.startswith(prefix):
-            return prefix
-    return None
+    return next(
+        (prefix for prefix in prefix_list if content.startswith(prefix)), None
+    )
 
 
 def check_contain(content, keyword_list):
     if not keyword_list:
         return None
-    for ky in keyword_list:
-        if content.find(ky) != -1:
-            return True
-    return None
+    return next((True for ky in keyword_list if content.find(ky) != -1), None)

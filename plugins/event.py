@@ -52,4 +52,4 @@ class EventContext:
         return self.action == EventAction.BREAK_PASS
 
     def is_break(self):
-        return self.action == EventAction.BREAK or self.action == EventAction.BREAK_PASS
+        return self.action in [EventAction.BREAK, EventAction.BREAK_PASS]

@@ -54,42 +54,48 @@ class AzureVoice(Voice):
             self.speech_config.speech_synthesis_voice_name = self.config["speech_synthesis_voice_name"]
             self.speech_config.speech_recognition_language = self.config["speech_recognition_language"]
         except Exception as e:
-            logger.warn("AzureVoice init failed: %s, ignore " % e)
+            logger.warn(f"AzureVoice init failed: {e}, ignore ")
 
     def voiceToText(self, voice_file):
         audio_config = speechsdk.AudioConfig(filename=voice_file)
         speech_recognizer = speechsdk.SpeechRecognizer(speech_config=self.speech_config, audio_config=audio_config)
         result = speech_recognizer.recognize_once()
         if result.reason == speechsdk.ResultReason.RecognizedSpeech:
-            logger.info("[Azure] voiceToText voice file name={} text={}".format(voice_file, result.text))
-            reply = Reply(ReplyType.TEXT, result.text)
+            logger.info(
+                f"[Azure] voiceToText voice file name={voice_file} text={result.text}"
+            )
+            return Reply(ReplyType.TEXT, result.text)
         else:
             cancel_details = result.cancellation_details
-            logger.error("[Azure] voiceToText error, result={}, errordetails={}".format(result, cancel_details.error_details))
-            reply = Reply(ReplyType.ERROR, "抱歉，语音识别失败")
-        return reply
+            logger.error(
+                f"[Azure] voiceToText error, result={result}, errordetails={cancel_details.error_details}"
+            )
+            return Reply(ReplyType.ERROR, "抱歉，语音识别失败")
 
     def textToVoice(self, text):
         if self.config.get("auto_detect"):
             lang = classify(text)[0]
-            key = "speech_synthesis_" + lang
+            key = f"speech_synthesis_{lang}"
             if key in self.config:
-                logger.info("[Azure] textToVoice auto detect language={}, voice={}".format(lang, self.config[key]))
+                logger.info(
+                    f"[Azure] textToVoice auto detect language={lang}, voice={self.config[key]}"
+                )
                 self.speech_config.speech_synthesis_voice_name = self.config[key]
             else:
                 self.speech_config.speech_synthesis_voice_name = self.config["speech_synthesis_voice_name"]
         else:
             self.speech_config.speech_synthesis_voice_name = self.config["speech_synthesis_voice_name"]
         # Avoid the same filename under multithreading
-        fileName = TmpDir().path() + "reply-" + str(int(time.time())) + "-" + str(hash(text) & 0x7FFFFFFF) + ".wav"
+        fileName = f"{TmpDir().path()}reply-{int(time.time())}-{str(hash(text) & 2147483647)}.wav"
         audio_config = speechsdk.AudioConfig(filename=fileName)
         speech_synthesizer = speechsdk.SpeechSynthesizer(speech_config=self.speech_config, audio_config=audio_config)
         result = speech_synthesizer.speak_text(text)
         if result.reason == speechsdk.ResultReason.SynthesizingAudioCompleted:
-            logger.info("[Azure] textToVoice text={} voice file name={}".format(text, fileName))
-            reply = Reply(ReplyType.VOICE, fileName)
+            logger.info(f"[Azure] textToVoice text={text} voice file name={fileName}")
+            return Reply(ReplyType.VOICE, fileName)
         else:
             cancel_details = result.cancellation_details
-            logger.error("[Azure] textToVoice error, result={}, errordetails={}".format(result, cancel_details.error_details))
-            reply = Reply(ReplyType.ERROR, "抱歉，语音合成失败")
-        return reply
+            logger.error(
+                f"[Azure] textToVoice error, result={result}, errordetails={cancel_details.error_details}"
+            )
+            return Reply(ReplyType.ERROR, "抱歉，语音合成失败")

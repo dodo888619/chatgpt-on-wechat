@@ -31,10 +31,14 @@ def get_room_info(wework, conversation_id):
         return None
     time.sleep(1)
     logger.debug(f"获取到的群聊信息: {rooms}")
-    for room in rooms['room_list']:
-        if room['conversation_id'] == conversation_id:
-            return room
-    return None
+    return next(
+        (
+            room
+            for room in rooms['room_list']
+            if room['conversation_id'] == conversation_id
+        ),
+        None,
+    )
 
 
 def cdn_download(wework, message, file_name):
@@ -66,7 +70,7 @@ def c2c_download_and_convert(wework, message, file_name):
 
     # 在下载完SILK文件之后，立即将其转换为WAV文件
     base_name, _ = os.path.splitext(save_path)
-    wav_file = base_name + ".wav"
+    wav_file = f"{base_name}.wav"
     pilk.silk_to_wav(save_path, wav_file, rate=24000)
 
 
@@ -88,7 +92,7 @@ class WeworkMessage(ChatMessage):
             elif wework_msg["type"] == 11044:  # 语音消息类型，需要缓存文件
                 file_name = datetime.datetime.now().strftime('%Y%m%d%H%M%S') + ".silk"
                 base_name, _ = os.path.splitext(file_name)
-                file_name_2 = base_name + ".wav"
+                file_name_2 = f"{base_name}.wav"
                 current_dir = os.getcwd()
                 self.ctype = ContextType.VOICE
                 self.content = os.path.join(current_dir, "tmp", file_name_2)
@@ -106,10 +110,7 @@ class WeworkMessage(ChatMessage):
                 self.actual_user_id = member_list[0]['user_id']
                 self.content = f"{self.actual_user_nickname}加入了群聊！"
                 directory = os.path.join(os.getcwd(), "tmp")
-                rooms = get_with_retry(wework.get_rooms)
-                if not rooms:
-                    logger.error("更新群信息失败···")
-                else:
+                if rooms := get_with_retry(wework.get_rooms):
                     result = {}
                     for room in rooms['room_list']:
                         # 获取聊天室ID
@@ -123,9 +124,12 @@ class WeworkMessage(ChatMessage):
                     with open(os.path.join(directory, 'wework_room_members.json'), 'w', encoding='utf-8') as f:
                         json.dump(result, f, ensure_ascii=False, indent=4)
                     logger.info("有新成员加入，已自动更新群成员列表缓存！")
+                else:
+                    logger.error("更新群信息失败···")
             else:
                 raise NotImplementedError(
-                    "Unsupported message type: Type:{} MsgType:{}".format(wework_msg["type"], wework_msg["MsgType"]))
+                    f'Unsupported message type: Type:{wework_msg["type"]} MsgType:{wework_msg["MsgType"]}'
+                )
 
             data = wework_msg['data']
             login_info = self.wework.get_login_info()
@@ -151,9 +155,7 @@ class WeworkMessage(ChatMessage):
                     room_info = get_room_info(wework=wework, conversation_id=conversation_id)
                     self.other_user_nickname = room_info.get('nickname', None) if room_info else None
                     at_list = data.get('at_list', [])
-                    tmp_list = []
-                    for at in at_list:
-                        tmp_list.append(at['nickname'])
+                    tmp_list = [at['nickname'] for at in at_list]
                     at_list = tmp_list
                     logger.debug(f"at_list: {at_list}")
                     logger.debug(f"nickname: {nickname}")

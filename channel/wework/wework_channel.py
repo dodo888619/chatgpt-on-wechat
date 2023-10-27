@@ -47,9 +47,9 @@ def download_and_compress_image(url, filename, quality=30):
     # 检查图片大小并可能进行压缩
     sz = fsize(image_storage)
     if sz >= 10 * 1024 * 1024:  # 如果图片大于 10 MB
-        logger.info("[wework] image too large, ready to compress, sz={}".format(sz))
+        logger.info(f"[wework] image too large, ready to compress, sz={sz}")
         image_storage = compress_imgfile(image_storage, 10 * 1024 * 1024 - 1)
-        logger.info("[wework] image compressed, sz={}".format(fsize(image_storage)))
+        logger.info(f"[wework] image compressed, sz={fsize(image_storage)}")
 
     # 将内存缓冲区的指针重置到起始位置
     image_storage.seek(0)
@@ -233,17 +233,18 @@ class WeworkChannel(ChatChannel):
         if cmsg.ctype == ContextType.VOICE:
             if not conf().get("speech_recognition"):
                 return
-            logger.debug("[WX]receive voice msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive voice msg: {cmsg.content}")
         elif cmsg.ctype == ContextType.IMAGE:
-            logger.debug("[WX]receive image msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive image msg: {cmsg.content}")
         elif cmsg.ctype == ContextType.PATPAT:
-            logger.debug("[WX]receive patpat msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive patpat msg: {cmsg.content}")
         elif cmsg.ctype == ContextType.TEXT:
             logger.debug("[WX]receive text msg: {}, cmsg={}".format(json.dumps(cmsg._rawmsg, ensure_ascii=False), cmsg))
         else:
-            logger.debug("[WX]receive msg: {}, cmsg={}".format(cmsg.content, cmsg))
-        context = self._compose_context(cmsg.ctype, cmsg.content, isgroup=False, msg=cmsg)
-        if context:
+            logger.debug(f"[WX]receive msg: {cmsg.content}, cmsg={cmsg}")
+        if context := self._compose_context(
+            cmsg.ctype, cmsg.content, isgroup=False, msg=cmsg
+        ):
             self.produce(context)
 
     @time_checker
@@ -252,17 +253,16 @@ class WeworkChannel(ChatChannel):
         if cmsg.ctype == ContextType.VOICE:
             if not conf().get("speech_recognition"):
                 return
-            logger.debug("[WX]receive voice for group msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive voice for group msg: {cmsg.content}")
         elif cmsg.ctype == ContextType.IMAGE:
-            logger.debug("[WX]receive image for group msg: {}".format(cmsg.content))
+            logger.debug(f"[WX]receive image for group msg: {cmsg.content}")
         elif cmsg.ctype in [ContextType.JOIN_GROUP, ContextType.PATPAT]:
-            logger.debug("[WX]receive note msg: {}".format(cmsg.content))
-        elif cmsg.ctype == ContextType.TEXT:
-            pass
-        else:
-            logger.debug("[WX]receive group msg: {}".format(cmsg.content))
-        context = self._compose_context(cmsg.ctype, cmsg.content, isgroup=True, msg=cmsg)
-        if context:
+            logger.debug(f"[WX]receive note msg: {cmsg.content}")
+        elif cmsg.ctype != ContextType.TEXT:
+            logger.debug(f"[WX]receive group msg: {cmsg.content}")
+        if context := self._compose_context(
+            cmsg.ctype, cmsg.content, isgroup=True, msg=cmsg
+        ):
             self.produce(context)
 
     # 统一的发送函数，每个Channel自行实现，根据reply的type字段发送不同类型的消息
@@ -270,7 +270,7 @@ class WeworkChannel(ChatChannel):
         logger.debug(f"context: {context}")
         receiver = context["receiver"]
         actual_user_id = context["msg"].actual_user_id
-        if reply.type == ReplyType.TEXT or reply.type == ReplyType.TEXT_:
+        if reply.type in [ReplyType.TEXT, ReplyType.TEXT_]:
             match = re.search(r"^@(.*?)\n", reply.content)
             logger.debug(f"match: {match}")
             if match:
@@ -280,10 +280,10 @@ class WeworkChannel(ChatChannel):
                 wework.send_room_at_msg(receiver, new_content, at_list)
             else:
                 wework.send_text(receiver, reply.content)
-            logger.info("[WX] sendMsg={}, receiver={}".format(reply, receiver))
-        elif reply.type == ReplyType.ERROR or reply.type == ReplyType.INFO:
+            logger.info(f"[WX] sendMsg={reply}, receiver={receiver}")
+        elif reply.type in [ReplyType.ERROR, ReplyType.INFO]:
             wework.send_text(receiver, reply.content)
-            logger.info("[WX] sendMsg={}, receiver={}".format(reply, receiver))
+            logger.info(f"[WX] sendMsg={reply}, receiver={receiver}")
         elif reply.type == ReplyType.IMAGE:  # 从文件读取图片
             image_storage = reply.content
             image_storage.seek(0)
@@ -295,7 +295,7 @@ class WeworkChannel(ChatChannel):
                 temp.write(data)
             # Send the image
             wework.send_image(receiver, temp_path)
-            logger.info("[WX] sendImage, receiver={}".format(receiver))
+            logger.info(f"[WX] sendImage, receiver={receiver}")
             # Remove the temporary file
             os.remove(temp_path)
         elif reply.type == ReplyType.IMAGE_URL:  # 从网络下载图片
@@ -306,7 +306,7 @@ class WeworkChannel(ChatChannel):
             image_path = download_and_compress_image(img_url, filename)
 
             wework.send_image(receiver, file_path=image_path)
-            logger.info("[WX] sendImage url={}, receiver={}".format(img_url, receiver))
+            logger.info(f"[WX] sendImage url={img_url}, receiver={receiver}")
         elif reply.type == ReplyType.VIDEO_URL:
             video_url = reply.content
             filename = str(uuid.uuid4())
@@ -317,7 +317,7 @@ class WeworkChannel(ChatChannel):
                 wework.send_text(receiver, "抱歉，视频太大了！！！")
             else:
                 wework.send_video(receiver, video_path)
-            logger.info("[WX] sendVideo, receiver={}".format(receiver))
+            logger.info(f"[WX] sendVideo, receiver={receiver}")
         elif reply.type == ReplyType.VOICE:
             wework.send_file(receiver, reply.content)
-            logger.info("[WX] sendFile={}, receiver={}".format(reply.content, receiver))
+            logger.info(f"[WX] sendFile={reply.content}, receiver={receiver}")

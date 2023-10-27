@@ -77,8 +77,9 @@ class TerminalChannel(ChatChannel):
             if check_prefix(prompt, trigger_prefixs) is None:
                 prompt = trigger_prefixs[0] + prompt  # 给没触发的消息加上触发前缀
 
-            context = self._compose_context(ContextType.TEXT, prompt, msg=TerminalMessage(msg_id, prompt))
-            if context:
+            if context := self._compose_context(
+                ContextType.TEXT, prompt, msg=TerminalMessage(msg_id, prompt)
+            ):
                 self.produce(context)
             else:
                 raise Exception("context is None")
@@ -88,5 +89,4 @@ class TerminalChannel(ChatChannel):
         Multi-line input function
         """
         sys.stdout.flush()
-        line = input()
-        return line
+        return input()

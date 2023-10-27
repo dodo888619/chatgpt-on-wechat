@@ -47,8 +47,6 @@ async def login(self, enableCmdQR=False, picDir=None, qrCallback=None, EventScan
                 status=ScanStatus.Waiting,
                 qrcode=f"qrcode/https://login.weixin.qq.com/l/{uuid}"
             )
-            event_stream.emit('scan', payload)
-            await asyncio.sleep(0.1)
         else:
             logger.info('Getting uuid of QR code.')
             self.get_QRuuid()
@@ -57,9 +55,9 @@ async def login(self, enableCmdQR=False, picDir=None, qrCallback=None, EventScan
                 qrcode=f"https://login.weixin.qq.com/l/{self.uuid}"
             )
             print(f"https://wechaty.js.org/qrcode/https://login.weixin.qq.com/l/{self.uuid}")
-            event_stream.emit('scan', payload)
-            await asyncio.sleep(0.1)
-            # logger.info('Please scan the QR code to log in.')
+                    # logger.info('Please scan the QR code to log in.')
+        event_stream.emit('scan', payload)
+        await asyncio.sleep(0.1)
         isLoggedIn = False
         while not isLoggedIn:
             status = await self.check_login()
@@ -119,15 +117,14 @@ async def login(self, enableCmdQR=False, picDir=None, qrCallback=None, EventScan
         utils.clear_screen()
         if os.path.exists(picDir or config.DEFAULT_QR):
             os.remove(picDir or config.DEFAULT_QR)
-    logger.info('Login successfully as %s' % self.storageClass.nickName)
+    logger.info(f'Login successfully as {self.storageClass.nickName}')
     await self.start_receiving(exitCallback)
     self.isLogging = False
 
 async def push_login(core):
     cookiesDict = core.s.cookies.get_dict()
     if 'wxuin' in cookiesDict:
-        url = '%s/cgi-bin/mmwebwx-bin/webwxpushloginurl?uin=%s' % (
-            config.BASE_URL, cookiesDict['wxuin'])
+        url = f"{config.BASE_URL}/cgi-bin/mmwebwx-bin/webwxpushloginurl?uin={cookiesDict['wxuin']}"
         headers = { 'User-Agent' : config.USER_AGENT}
         r = core.s.get(url, headers=headers).json()
         if 'uuid' in r and r.get('ret') in (0, '0'):
@@ -136,7 +133,7 @@ async def push_login(core):
     return False
 
 def get_QRuuid(self):
-    url = '%s/jslogin' % config.BASE_URL
+    url = f'{config.BASE_URL}/jslogin'
     params = {
         'appid' : 'wx782c26e4c19acffb',
         'fun'   : 'new',
@@ -154,7 +151,7 @@ async def get_QR(self, uuid=None, enableCmdQR=False, picDir=None, qrCallback=Non
     uuid = uuid or self.uuid
     picDir = picDir or config.DEFAULT_QR
     qrStorage = io.BytesIO()
-    qrCode = QRCode('https://login.weixin.qq.com/l/' + uuid)
+    qrCode = QRCode(f'https://login.weixin.qq.com/l/{uuid}')
     qrCode.png(qrStorage, scale=10)
     if hasattr(qrCallback, '__call__'):
         await qrCallback(uuid=uuid, status='0', qrcode=qrStorage.getvalue())
@@ -169,19 +166,15 @@ async def get_QR(self, uuid=None, enableCmdQR=False, picDir=None, qrCallback=Non
 
 async def check_login(self, uuid=None):
     uuid = uuid or self.uuid
-    url = '%s/cgi-bin/mmwebwx-bin/login' % config.BASE_URL
+    url = f'{config.BASE_URL}/cgi-bin/mmwebwx-bin/login'
     localTime = int(time.time())
-    params = 'loginicon=true&uuid=%s&tip=1&r=%s&_=%s' % (
-        uuid, int(-localTime / 1579), localTime)
+    params = f'loginicon=true&uuid={uuid}&tip=1&r={int(-localTime / 1579)}&_={localTime}'
     headers = { 'User-Agent' : config.USER_AGENT}
     r = self.s.get(url, params=params, headers=headers)
     regx = r'window.code=(\d+)'
     data = re.search(regx, r.text)
     if data and data.group(1) == '200':
-        if await process_login_info(self, r.text):
-            return '200'
-        else:
-            return '400'
+        return '200' if await process_login_info(self, r.text) else '400'
     elif data:
         return data.group(1)
     else:
@@ -208,14 +201,16 @@ async def process_login_info(core, loginContent):
             ("qq.com"          , ("file.wx.qq.com", "webpush.wx.qq.com")),
             ("web2.wechat.com" , ("file.web2.wechat.com", "webpush.web2.wechat.com")),
             ("wechat.com"      , ("file.web.wechat.com", "webpush.web.wechat.com"))):
-        fileUrl, syncUrl = ['https://%s/cgi-bin/mmwebwx-bin' % url for url in detailedUrl]
+        fileUrl, syncUrl = [
+            f'https://{url}/cgi-bin/mmwebwx-bin' for url in detailedUrl
+        ]
         if indexUrl in core.loginInfo['url']:
             core.loginInfo['fileUrl'], core.loginInfo['syncUrl'] = \
                 fileUrl, syncUrl
             break
     else:
         core.loginInfo['fileUrl'] = core.loginInfo['syncUrl'] = core.loginInfo['url']
-    core.loginInfo['deviceid'] = 'e' + repr(random.random())[2:17]
+    core.loginInfo['deviceid'] = f'e{repr(random.random())[2:17]}'
     core.loginInfo['logintime'] = int(time.time() * 1e3)
     core.loginInfo['BaseRequest'] = {}
     cookies = core.s.cookies.get_dict()
@@ -239,14 +234,17 @@ async def process_login_info(core, loginContent):
     #         core.loginInfo['wxuin'] = core.loginInfo['BaseRequest']['Uin'] = node.childNodes[0].data
     #     elif node.nodeName == 'pass_ticket':
     #         core.loginInfo['pass_ticket'] = core.loginInfo['BaseRequest']['DeviceID'] = node.childNodes[0].data
-    if not all([key in core.loginInfo for key in ('skey', 'wxsid', 'wxuin', 'pass_ticket')]):
+    if any(
+        key not in core.loginInfo
+        for key in ('skey', 'wxsid', 'wxuin', 'pass_ticket')
+    ):
         logger.error('Your wechat account may be LIMITED to log in WEB wechat, error info:\n%s' % r.text)
         core.isLogging = False
         return False
     return True
 
 async def web_init(self):
-    url = '%s/webwxinit' % self.loginInfo['url']
+    url = f"{self.loginInfo['url']}/webwxinit"
     params = {
         'r': int(-time.time() / 1579),
         'pass_ticket': self.loginInfo['pass_ticket'], }
@@ -262,22 +260,20 @@ async def web_init(self):
     self.loginInfo['User'] = wrap_user_dict(utils.struct_friend_info(dic['User']))
     self.memberList.append(self.loginInfo['User'])
     self.loginInfo['SyncKey'] = dic['SyncKey']
-    self.loginInfo['synckey'] = '|'.join(['%s_%s' % (item['Key'], item['Val'])
-        for item in dic['SyncKey']['List']])
+    self.loginInfo['synckey'] = '|'.join(
+        [f"{item['Key']}_{item['Val']}" for item in dic['SyncKey']['List']]
+    )
     self.storageClass.userName = dic['User']['UserName']
     self.storageClass.nickName = dic['User']['NickName']
     # deal with contact list returned when init
     contactList = dic.get('ContactList', [])
     chatroomList, otherList = [], []
     for m in contactList:
-        if m['Sex'] != 0:
+        if m['Sex'] != 0 or '@@' not in m['UserName'] and '@' in m['UserName']:
             otherList.append(m)
         elif '@@' in m['UserName']:
             m['MemberList'] = [] # don't let dirty info pollute the list
             chatroomList.append(m)
-        elif '@' in m['UserName']:
-            # mp will be dealt in update_local_friends as well
-            otherList.append(m)
     if chatroomList:
         update_local_chatrooms(self, chatroomList)
     if otherList:
@@ -285,8 +281,7 @@ async def web_init(self):
     return dic
 
 async def show_mobile_login(self):
-    url = '%s/webwxstatusnotify?lang=zh_CN&pass_ticket=%s' % (
-        self.loginInfo['url'], self.loginInfo['pass_ticket'])
+    url = f"{self.loginInfo['url']}/webwxstatusnotify?lang=zh_CN&pass_ticket={self.loginInfo['pass_ticket']}"
     data = {
         'BaseRequest'  : self.loginInfo['BaseRequest'],
         'Code'         : 3,
@@ -342,15 +337,15 @@ async def start_receiving(self, exitCallback=None, getReceivingFnOnly=False):
             exitCallback(self.storageClass.userName)
         else:
             logger.info('LOG OUT!')
+
     if getReceivingFnOnly:
         return maintain_loop
-    else:
-        maintainThread = threading.Thread(target=maintain_loop)
-        maintainThread.setDaemon(True)
-        maintainThread.start()
+    maintainThread = threading.Thread(target=maintain_loop)
+    maintainThread.setDaemon(True)
+    maintainThread.start()
 
 def sync_check(self):
-    url = '%s/synccheck' % self.loginInfo.get('syncUrl', self.loginInfo['url'])
+    url = f"{self.loginInfo.get('syncUrl', self.loginInfo['url'])}/synccheck"
     params = {
         'r'        : int(time.time() * 1000),
         'skey'     : self.loginInfo['skey'],
@@ -378,15 +373,13 @@ def sync_check(self):
     regx = r'window.synccheck={retcode:"(\d+)",selector:"(\d+)"}'
     pm = re.search(regx, r.text)
     if pm is None or pm.group(1) != '0':
-        logger.debug('Unexpected sync check result: %s' % r.text)
+        logger.debug(f'Unexpected sync check result: {r.text}')
         return None
     return pm.group(2)
 
 def get_msg(self):
-    self.loginInfo['deviceid'] = 'e' + repr(random.random())[2:17]
-    url = '%s/webwxsync?sid=%s&skey=%s&pass_ticket=%s' % (
-        self.loginInfo['url'], self.loginInfo['wxsid'],
-        self.loginInfo['skey'],self.loginInfo['pass_ticket'])
+    self.loginInfo['deviceid'] = f'e{repr(random.random())[2:17]}'
+    url = f"{self.loginInfo['url']}/webwxsync?sid={self.loginInfo['wxsid']}&skey={self.loginInfo['skey']}&pass_ticket={self.loginInfo['pass_ticket']}"
     data = {
         'BaseRequest' : self.loginInfo['BaseRequest'],
         'SyncKey'     : self.loginInfo['SyncKey'],
@@ -398,13 +391,17 @@ def get_msg(self):
     dic = json.loads(r.content.decode('utf-8', 'replace'))
     if dic['BaseResponse']['Ret'] != 0: return None, None
     self.loginInfo['SyncKey'] = dic['SyncKey']
-    self.loginInfo['synckey'] = '|'.join(['%s_%s' % (item['Key'], item['Val'])
-        for item in dic['SyncCheckKey']['List']])
+    self.loginInfo['synckey'] = '|'.join(
+        [
+            f"{item['Key']}_{item['Val']}"
+            for item in dic['SyncCheckKey']['List']
+        ]
+    )
     return dic['AddMsgList'], dic['ModContactList']
 
 def logout(self):
     if self.alive:
-        url = '%s/webwxlogout' % self.loginInfo['url']
+        url = f"{self.loginInfo['url']}/webwxlogout"
         params = {
             'redirect' : 1,
             'type'     : 1,
